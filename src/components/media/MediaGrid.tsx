@@ -1,11 +1,14 @@
 /**
  * 媒体网格组件
- * 响应式网格布局展示媒体资源，集成虚拟滚动优化大数据性能
+ * 响应式网格布局展示媒体资源，集成虚拟滚动、多选和右键菜单
  */
+import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Image, Video, Inbox } from 'lucide-react'
+import { Image, Video, Inbox, CheckSquare } from 'lucide-react'
 import { VirtuosoGrid } from 'react-virtuoso'
 import { MediaCard } from './MediaCard'
+import { ContextMenu, createMediaContextMenuItems } from '../common/ContextMenu'
+import { BulkActionBar } from '../gallery/BulkActionBar'
 import type { MediaItem, ViewType } from '../../types'
 
 interface MediaGridProps {
@@ -14,6 +17,11 @@ interface MediaGridProps {
     selectedTag: string | null
     onFavoriteToggle: (id: number) => void
     onItemClick?: (item: MediaItem) => void
+    onDeleteItem?: (id: number) => Promise<void>
+    onBatchDelete?: (ids: number[]) => Promise<void>
+    onBatchAddTags?: (ids: number[], tags: string[]) => Promise<void>
+    onRefresh?: () => void
+    allTags?: string[]
 }
 
 // 视图标题配置
@@ -23,8 +31,157 @@ const viewTitles: Record<ViewType, { title: string; icon: React.ReactNode }> = {
     favorites: { title: '收藏夹', icon: <Inbox className="w-5 h-5" /> }
 }
 
-export function MediaGrid({ items, currentView, selectedTag, onFavoriteToggle, onItemClick }: MediaGridProps) {
+export function MediaGrid({
+    items,
+    currentView,
+    selectedTag,
+    onFavoriteToggle,
+    onItemClick,
+    onDeleteItem,
+    onBatchDelete,
+    onBatchAddTags,
+    onRefresh,
+    allTags = []
+}: MediaGridProps) {
     const { title } = viewTitles[currentView]
+
+    // 多选状态
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+    const [isSelectionMode, setIsSelectionMode] = useState(false)
+    const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null)
+
+    // 右键菜单状态
+    const [contextMenu, setContextMenu] = useState<{
+        isOpen: boolean
+        position: { x: number; y: number }
+        item: MediaItem | null
+    }>({
+        isOpen: false,
+        position: { x: 0, y: 0 },
+        item: null
+    })
+
+    // 处理选择
+    const handleSelect = useCallback((id: number, e: React.MouseEvent) => {
+        const itemIndex = items.findIndex(item => item.id === id)
+
+        setSelectedIds(prev => {
+            const newSet = new Set(prev)
+
+            if (e.shiftKey && lastSelectedIndex !== null) {
+                // Shift+Click: 范围选择
+                const start = Math.min(lastSelectedIndex, itemIndex)
+                const end = Math.max(lastSelectedIndex, itemIndex)
+                for (let i = start; i <= end; i++) {
+                    newSet.add(items[i].id)
+                }
+            } else if (e.ctrlKey || e.metaKey) {
+                // Ctrl/Cmd+Click: 切换选择
+                if (newSet.has(id)) {
+                    newSet.delete(id)
+                } else {
+                    newSet.add(id)
+                }
+            } else {
+                // 普通点击在选择模式下
+                if (isSelectionMode) {
+                    if (newSet.has(id)) {
+                        newSet.delete(id)
+                    } else {
+                        newSet.add(id)
+                    }
+                } else {
+                    // 非选择模式下进入选择模式并选中当前项
+                    setIsSelectionMode(true)
+                    newSet.clear()
+                    newSet.add(id)
+                }
+            }
+
+            return newSet
+        })
+
+        setLastSelectedIndex(itemIndex)
+    }, [items, lastSelectedIndex, isSelectionMode])
+
+    // 清除选择
+    const handleClearSelection = useCallback(() => {
+        setSelectedIds(new Set())
+        setIsSelectionMode(false)
+        setLastSelectedIndex(null)
+    }, [])
+
+    // 切换选择模式
+    const toggleSelectionMode = useCallback(() => {
+        if (isSelectionMode) {
+            handleClearSelection()
+        } else {
+            setIsSelectionMode(true)
+        }
+    }, [isSelectionMode, handleClearSelection])
+
+    // 右键菜单
+    const handleContextMenu = useCallback((e: React.MouseEvent, item: MediaItem) => {
+        e.preventDefault()
+        setContextMenu({
+            isOpen: true,
+            position: { x: e.clientX, y: e.clientY },
+            item
+        })
+    }, [])
+
+    const closeContextMenu = useCallback(() => {
+        setContextMenu(prev => ({ ...prev, isOpen: false }))
+    }, [])
+
+    // 右键菜单操作
+    const handleShowInExplorer = async () => {
+        if (!contextMenu.item || !window.electronAPI) return
+        await window.electronAPI.shell.showInExplorer(contextMenu.item.path)
+    }
+
+    const handleCopyPath = async () => {
+        if (!contextMenu.item || !window.electronAPI) return
+        await window.electronAPI.shell.copyPath(contextMenu.item.path)
+    }
+
+    const handleDeleteFromMenu = async () => {
+        if (!contextMenu.item) return
+        if (!confirm(`确定要删除 "${contextMenu.item.fileName}" 吗？\n文件将移至回收站。`)) return
+        await onDeleteItem?.(contextMenu.item.id)
+        onRefresh?.()
+    }
+
+    const handleToggleFavoriteFromMenu = () => {
+        if (!contextMenu.item) return
+        onFavoriteToggle(contextMenu.item.id)
+    }
+
+    // 批量操作
+    const handleBatchDelete = async () => {
+        if (selectedIds.size === 0) return
+        await onBatchDelete?.(Array.from(selectedIds))
+        handleClearSelection()
+        onRefresh?.()
+    }
+
+    const handleBatchAddTags = async (tags: string[]) => {
+        if (selectedIds.size === 0) return
+        await onBatchAddTags?.(Array.from(selectedIds), tags)
+        onRefresh?.()
+    }
+
+    // 生成右键菜单项
+    const menuItems = contextMenu.item ? createMediaContextMenuItems(
+        contextMenu.item.path,
+        contextMenu.item.isFavorite,
+        {
+            onShowInExplorer: handleShowInExplorer,
+            onCopyPath: handleCopyPath,
+            onToggleFavorite: handleToggleFavoriteFromMenu,
+            onDelete: handleDeleteFromMenu
+        }
+    ) : []
 
     return (
         <div className="flex-1 flex flex-col min-h-0 bg-nexus-bg">
@@ -43,6 +200,20 @@ export function MediaGrid({ items, currentView, selectedTag, onFavoriteToggle, o
                         <span className="text-sm text-nexus-text-muted">
                             {items.length} 个项目
                         </span>
+
+                        {/* 选择模式切换按钮 */}
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={toggleSelectionMode}
+                            className={`ml-auto flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${isSelectionMode
+                                    ? 'bg-neon-cyan/20 text-neon-cyan'
+                                    : 'bg-white/5 text-nexus-text-secondary hover:bg-white/10'
+                                }`}
+                        >
+                            <CheckSquare className="w-4 h-4" />
+                            <span className="text-sm">{isSelectionMode ? '退出选择' : '多选'}</span>
+                        </motion.button>
                     </div>
                     {selectedTag && (
                         <p className="text-nexus-text-secondary text-sm">
@@ -60,7 +231,7 @@ export function MediaGrid({ items, currentView, selectedTag, onFavoriteToggle, o
                             style={{ height: '100%', width: '100%' }}
                             data={items}
                             totalCount={items.length}
-                            overscan={400} // 增加过度扫描以减少滚动白屏
+                            overscan={400}
                             listClassName="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 p-6"
                             itemContent={(index, item) => (
                                 <MediaCard
@@ -68,7 +239,11 @@ export function MediaGrid({ items, currentView, selectedTag, onFavoriteToggle, o
                                     item={item}
                                     index={index}
                                     onFavoriteToggle={onFavoriteToggle}
-                                    onClick={() => onItemClick?.(item)}
+                                    onClick={() => !isSelectionMode && onItemClick?.(item)}
+                                    onContextMenu={handleContextMenu}
+                                    isSelected={selectedIds.has(item.id)}
+                                    isSelectionMode={isSelectionMode}
+                                    onSelect={handleSelect}
                                 />
                             )}
                         />
@@ -96,6 +271,23 @@ export function MediaGrid({ items, currentView, selectedTag, onFavoriteToggle, o
 
             {/* 底部装饰渐变 */}
             <div className="h-6 bg-gradient-to-t from-black/20 to-transparent pointer-events-none sticky bottom-0 z-10" />
+
+            {/* 右键菜单 */}
+            <ContextMenu
+                isOpen={contextMenu.isOpen}
+                position={contextMenu.position}
+                items={menuItems}
+                onClose={closeContextMenu}
+            />
+
+            {/* 批量操作工具栏 */}
+            <BulkActionBar
+                selectedCount={selectedIds.size}
+                onAddTags={handleBatchAddTags}
+                onDelete={handleBatchDelete}
+                onClearSelection={handleClearSelection}
+                allTags={allTags}
+            />
         </div>
     )
 }

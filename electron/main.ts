@@ -2,13 +2,13 @@
  * Electron 主进程
  * 负责创建窗口、处理 IPC 通信、文件扫描和数据库操作
  */
-import { app, BrowserWindow, ipcMain, dialog, protocol, net } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, clipboard } from 'electron'
 import path from 'path'
 import { pathToFileURL } from 'url'
-import { initDatabase, insertMediaItems, getAllMediaItems, getMediaStats, getMediaCount, toggleFavorite, updateTags, updateNotes, getAllTags, getMediaItem, closeDatabase } from './database'
+import { initDatabase, insertMediaItems, getAllMediaItems, getMediaStats, getMediaCount, toggleFavorite, updateTags, updateNotes, getAllTags, getMediaItem, closeDatabase, updateAiTags, getPendingAiItems, deleteMediaItem, deleteMediaItems, batchAddTags } from './database'
 import { scanFolders, type ScannedFile, type ScanProgress } from './scanner'
-
 import { initThumbnailsDir, startThumbnailBatch } from './thumbnails'
+import { startAiServer, stopAiServer, checkHealth, analyzeImage, semanticSearch, processBackgroundAnalysis, getAiStatus } from './ai-sidecar'
 
 // 注册自定义协议以加载本地文件
 protocol.registerSchemesAsPrivileged([
@@ -90,6 +90,19 @@ app.whenReady().then(async () => {
     // 初始化缩略图目录
     initThumbnailsDir()
 
+    // 启动 AI 服务（后台）
+    startAiServer().then(ready => {
+        if (ready) {
+            console.log('AI 服务已启动')
+            // 启动后台 AI 分析任务（每 30 秒检查一次）
+            setInterval(() => {
+                processBackgroundAnalysis().catch(err => console.error('后台 AI 分析错误:', err))
+            }, 30000)
+        } else {
+            console.log('AI 服务启动失败，将以无 AI 模式运行')
+        }
+    })
+
     createWindow()
 
     app.on('activate', () => {
@@ -100,6 +113,7 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', () => {
+    stopAiServer()
     closeDatabase()
     if (process.platform !== 'darwin') {
         app.quit()
@@ -267,5 +281,133 @@ ipcMain.handle('media:getItem', (_event, id: number) => {
     } catch (error) {
         console.error('获取媒体项失败:', error)
         return { success: false, item: null }
+    }
+})
+
+// ==================== AI 相关 IPC 处理器 ====================
+
+// 获取 AI 服务状态
+ipcMain.handle('ai:getStatus', () => {
+    return getAiStatus()
+})
+
+// 分析单张图片
+ipcMain.handle('ai:analyze', async (_event, imagePath: string) => {
+    try {
+        const result = await analyzeImage(imagePath)
+        return result
+    } catch (error) {
+        console.error('AI 分析失败:', error)
+        return { success: false, error: String(error) }
+    }
+})
+
+// 语义搜索
+ipcMain.handle('ai:semanticSearch', async (_event, query: string, limit: number = 20) => {
+    try {
+        const result = await semanticSearch(query, limit)
+        return result
+    } catch (error) {
+        console.error('语义搜索失败:', error)
+        return { success: false, error: String(error) }
+    }
+})
+
+// 采纳 AI 建议标签
+ipcMain.handle('ai:adoptTag', (_event, id: number, tag: string) => {
+    try {
+        // 获取当前标签
+        const item = getMediaItem(id)
+        if (!item) return { success: false, error: '媒体项不存在' }
+
+        const currentTags: string[] = JSON.parse(item.tags || '[]')
+        if (!currentTags.includes(tag)) {
+            currentTags.push(tag)
+            updateTags(id, currentTags)
+        }
+        return { success: true, tags: currentTags }
+    } catch (error) {
+        console.error('采纳标签失败:', error)
+        return { success: false, error: String(error) }
+    }
+})
+
+// ==================== Shell 相关 IPC 处理器 ====================
+
+// 在资源管理器中显示文件
+ipcMain.handle('shell:showInExplorer', (_event, filePath: string) => {
+    try {
+        shell.showItemInFolder(filePath)
+        return { success: true }
+    } catch (error) {
+        console.error('打开资源管理器失败:', error)
+        return { success: false, error: String(error) }
+    }
+})
+
+// 复制路径到剪贴板
+ipcMain.handle('shell:copyPath', (_event, filePath: string) => {
+    try {
+        clipboard.writeText(filePath)
+        return { success: true }
+    } catch (error) {
+        console.error('复制路径失败:', error)
+        return { success: false, error: String(error) }
+    }
+})
+
+// 删除单个媒体项（移至回收站并从数据库删除）
+ipcMain.handle('media:delete', async (_event, id: number) => {
+    try {
+        const item = getMediaItem(id)
+        if (!item) return { success: false, error: '媒体项不存在' }
+
+        // 移动文件到回收站
+        await shell.trashItem(item.path)
+
+        // 从数据库删除
+        deleteMediaItem(id)
+
+        return { success: true }
+    } catch (error) {
+        console.error('删除媒体项失败:', error)
+        return { success: false, error: String(error) }
+    }
+})
+
+// 批量删除媒体项
+ipcMain.handle('media:batchDelete', async (_event, ids: number[]) => {
+    try {
+        let deletedCount = 0
+        for (const id of ids) {
+            const item = getMediaItem(id)
+            if (item) {
+                try {
+                    await shell.trashItem(item.path)
+                    deletedCount++
+                } catch (e) {
+                    console.error(`移动文件到回收站失败: ${item.path}`, e)
+                }
+            }
+        }
+
+        // 从数据库批量删除
+        const dbDeleted = deleteMediaItems(ids)
+
+        return { success: true, deleted: deletedCount, dbDeleted }
+    } catch (error) {
+        console.error('批量删除失败:', error)
+        return { success: false, error: String(error) }
+    }
+})
+
+// 批量添加标签
+ipcMain.handle('media:batchAddTags', (_event, ids: number[], tags: string[]) => {
+    try {
+        const updated = batchAddTags(ids, tags)
+        return { success: true, updated }
+    } catch (error) {
+        console.error('批量添加标签失败:', error)
+        return { success: false, error: String(error) }
     }
 })

@@ -7,6 +7,7 @@ import { TopBar, Sidebar } from './components/layout'
 import { MediaGrid } from './components/media'
 import { DetailModal } from './components/preview'
 import { recordToMediaItem } from './types'
+import { type FilterState, defaultFilterState } from './components/layout/FilterPanel'
 import type { ViewType, MediaItem, ScanProgress, TagStat } from './types'
 
 function App() {
@@ -23,6 +24,9 @@ function App() {
     const [previewItem, setPreviewItem] = useState<MediaItem | null>(null)
     const [isPreviewOpen, setIsPreviewOpen] = useState(false)
     const [allTags, setAllTags] = useState<string[]>([])
+
+    // 高级筛选状态
+    const [filters, setFilters] = useState<FilterState>(defaultFilterState)
 
     // 从数据库加载媒体项
     const loadMediaFromDB = useCallback(async () => {
@@ -109,7 +113,8 @@ function App() {
                             modifiedTime: new Date().toISOString(),
                             createdAt: new Date().toISOString(),
                             updatedAt: new Date().toISOString(),
-                            isFavorite: false
+                            isFavorite: false,
+                            aiTags: []
                         }))
                     return [...prev, ...newItems]
                 })
@@ -150,9 +155,56 @@ function App() {
             items = items.filter(item => new Date(item.createdAt) > sevenDaysAgo)
         }
 
-        // 标签过滤
+        // 标签过滤 (快速标签选择)
         if (selectedTag) {
             items = items.filter(item => item.tags.includes(selectedTag))
+        }
+
+        // === 高级过滤 ===
+
+        // 日期范围过滤
+        if (filters.dateRange.enabled) {
+            if (filters.dateRange.start) {
+                const startDate = new Date(filters.dateRange.start)
+                items = items.filter(item => new Date(item.createdAt) >= startDate)
+            }
+            if (filters.dateRange.end) {
+                const endDate = new Date(filters.dateRange.end)
+                endDate.setHours(23, 59, 59, 999) // 包含结束日期整天
+                items = items.filter(item => new Date(item.createdAt) <= endDate)
+            }
+        }
+
+        // 文件类型过滤
+        if (!filters.fileTypes.images && filters.fileTypes.videos) {
+            items = items.filter(item => item.type === 'video')
+        } else if (filters.fileTypes.images && !filters.fileTypes.videos) {
+            items = items.filter(item => item.type === 'image')
+        } else if (!filters.fileTypes.images && !filters.fileTypes.videos) {
+            items = [] // 两者都未选中则无结果
+        }
+
+        // 标签组合过滤
+        if (filters.tags.enabled && filters.tags.selected.length > 0) {
+            if (filters.tags.logic === 'AND') {
+                // AND: 必须包含所有选中标签
+                items = items.filter(item =>
+                    filters.tags.selected.every(tag => item.tags.includes(tag))
+                )
+            } else {
+                // OR: 包含任一选中标签
+                items = items.filter(item =>
+                    filters.tags.selected.some(tag => item.tags.includes(tag))
+                )
+            }
+        }
+
+        // 文件大小过滤
+        if (filters.fileSize.enabled) {
+            items = items.filter(item =>
+                item.fileSize >= filters.fileSize.min &&
+                item.fileSize <= filters.fileSize.max
+            )
         }
 
         // 搜索过滤 - 搜索文件名、标签和备注
@@ -166,7 +218,7 @@ function App() {
         }
 
         return items
-    }, [mediaItems, currentView, selectedTag, searchQuery])
+    }, [mediaItems, currentView, selectedTag, searchQuery, filters])
 
     // 计算标签统计
     const tagStats = useMemo<TagStat[]>(() => {
@@ -265,6 +317,35 @@ function App() {
         }
     }
 
+    // 采纳 AI 建议标签
+    const handleAdoptAiTag = async (id: number, tag: string) => {
+        if (!window.electronAPI) return
+
+        try {
+            const result = await window.electronAPI.ai.adoptTag(id, tag)
+            if (result.success && result.tags) {
+                // 更新本地状态
+                setMediaItems(prev =>
+                    prev.map(item =>
+                        item.id === id
+                            ? { ...item, tags: result.tags! }
+                            : item
+                    )
+                )
+
+                // 更新预览项
+                if (previewItem && previewItem.id === id) {
+                    setPreviewItem(prev => prev ? { ...prev, tags: result.tags! } : null)
+                }
+
+                // 刷新标签列表
+                loadAllTags()
+            }
+        } catch (error) {
+            console.error('采纳 AI 标签失败:', error)
+        }
+    }
+
     // 打开预览
     const handleItemClick = (item: MediaItem) => {
         setPreviewItem(item)
@@ -307,6 +388,57 @@ function App() {
         }
     }
 
+    // 删除单个媒体项
+    const handleDeleteItem = async (id: number) => {
+        if (!window.electronAPI) return
+
+        try {
+            const result = await window.electronAPI.batch.deleteOne(id)
+            if (result.success) {
+                setMediaItems(prev => prev.filter(item => item.id !== id))
+            }
+        } catch (error) {
+            console.error('删除失败:', error)
+        }
+    }
+
+    // 批量删除
+    const handleBatchDelete = async (ids: number[]) => {
+        if (!window.electronAPI) return
+
+        try {
+            const result = await window.electronAPI.batch.delete(ids)
+            if (result.success) {
+                setMediaItems(prev => prev.filter(item => !ids.includes(item.id)))
+            }
+        } catch (error) {
+            console.error('批量删除失败:', error)
+        }
+    }
+
+    // 批量添加标签
+    const handleBatchAddTags = async (ids: number[], tags: string[]) => {
+        if (!window.electronAPI) return
+
+        try {
+            const result = await window.electronAPI.batch.addTags(ids, tags)
+            if (result.success) {
+                // 更新本地状态
+                setMediaItems(prev => prev.map(item => {
+                    if (ids.includes(item.id)) {
+                        const newTags = Array.from(new Set([...item.tags, ...tags]))
+                        return { ...item, tags: newTags }
+                    }
+                    return item
+                }))
+                // 刷新标签列表
+                loadAllTags()
+            }
+        } catch (error) {
+            console.error('批量添加标签失败:', error)
+        }
+    }
+
     return (
         <div className="h-screen w-screen flex flex-col bg-nexus-bg overflow-hidden">
             {/* 顶部栏 */}
@@ -314,6 +446,7 @@ function App() {
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
                 onAddFolder={handleAddFolder}
+                onRefresh={loadMediaFromDB}
                 isScanning={isScanning}
                 scanStatus={scanStatus}
             />
@@ -328,6 +461,9 @@ function App() {
                     selectedTag={selectedTag}
                     onTagSelect={setSelectedTag}
                     mediaCount={mediaCount}
+                    filters={filters}
+                    onFiltersChange={setFilters}
+                    availableTags={allTags}
                 />
 
                 {/* 媒体展示区 */}
@@ -338,6 +474,11 @@ function App() {
                         selectedTag={selectedTag}
                         onFavoriteToggle={handleFavoriteToggle}
                         onItemClick={handleItemClick}
+                        onDeleteItem={handleDeleteItem}
+                        onBatchDelete={handleBatchDelete}
+                        onBatchAddTags={handleBatchAddTags}
+                        onRefresh={loadMediaFromDB}
+                        allTags={allTags}
                     />
                 </main>
             </div>
@@ -353,6 +494,7 @@ function App() {
                 onTagsChange={handleTagsChange}
                 onNotesChange={handleNotesChange}
                 onFavoriteToggle={handleFavoriteToggle}
+                onAdoptAiTag={handleAdoptAiTag}
             />
 
             {/* 背景装饰效果 */}

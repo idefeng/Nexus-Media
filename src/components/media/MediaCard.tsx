@@ -1,10 +1,10 @@
 /**
  * 媒体卡片组件
- * 展示单个媒体资源的缩略图和信息，支持懒加载和占位骨架
+ * 展示单个媒体资源的缩略图和信息，支持懒加载、右键菜单和多选
  */
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Heart, Play, Image as ImageIcon, Video as VideoIcon, MoreHorizontal, AlertCircle } from 'lucide-react'
+import { Heart, Play, Image as ImageIcon, Video as VideoIcon, AlertCircle, Check } from 'lucide-react'
 import type { MediaItem } from '../../types'
 
 interface MediaCardProps {
@@ -12,6 +12,11 @@ interface MediaCardProps {
     index: number
     onFavoriteToggle: (id: number) => void
     onClick?: () => void
+    onContextMenu?: (e: React.MouseEvent, item: MediaItem) => void
+    // 多选相关
+    isSelected?: boolean
+    isSelectionMode?: boolean
+    onSelect?: (id: number, e: React.MouseEvent) => void
 }
 
 // 格式化文件大小
@@ -53,11 +58,41 @@ function getFileTypeStyle(type: 'image' | 'video') {
     }
 }
 
-export function MediaCard({ item, index, onFavoriteToggle, onClick }: MediaCardProps) {
+export function MediaCard({
+    item,
+    index,
+    onFavoriteToggle,
+    onClick,
+    onContextMenu,
+    isSelected = false,
+    isSelectionMode = false,
+    onSelect
+}: MediaCardProps) {
     const [isImageLoaded, setIsImageLoaded] = useState(false)
     const [hasError, setHasError] = useState(false)
+    const [isHovered, setIsHovered] = useState(false)
     const fileStyle = getFileTypeStyle(item.type)
     const FileTypeIcon = fileStyle.icon
+
+    const handleClick = (e: React.MouseEvent) => {
+        // 如果按住 Ctrl 或 Shift，或在选择模式下，触发选择
+        if ((e.ctrlKey || e.shiftKey || isSelectionMode) && onSelect) {
+            e.preventDefault()
+            onSelect(item.id, e)
+        } else {
+            onClick?.()
+        }
+    }
+
+    const handleCheckboxClick = (e: React.MouseEvent) => {
+        e.stopPropagation()
+        onSelect?.(item.id, e)
+    }
+
+    const handleContextMenu = (e: React.MouseEvent) => {
+        e.preventDefault()
+        onContextMenu?.(e, item)
+    }
 
     return (
         <motion.div
@@ -69,9 +104,28 @@ export function MediaCard({ item, index, onFavoriteToggle, onClick }: MediaCardP
                 ease: "easeOut"
             }}
             whileHover={{ y: -4, transition: { duration: 0.2 } }}
-            className="media-card group relative cursor-pointer"
-            onClick={onClick}
+            className={`media-card group relative cursor-pointer ${isSelected ? 'ring-2 ring-neon-cyan ring-offset-2 ring-offset-nexus-bg' : ''
+                }`}
+            onClick={handleClick}
+            onContextMenu={handleContextMenu}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
         >
+            {/* 选择复选框 */}
+            {(isHovered || isSelectionMode || isSelected) && onSelect && (
+                <motion.button
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    onClick={handleCheckboxClick}
+                    className={`absolute top-2 left-2 z-10 w-6 h-6 rounded-md flex items-center justify-center transition-all ${isSelected
+                            ? 'bg-neon-cyan text-black'
+                            : 'bg-black/60 backdrop-blur-sm border border-white/30 hover:bg-white/20'
+                        }`}
+                >
+                    {isSelected && <Check className="w-4 h-4" />}
+                </motion.button>
+            )}
+
             {/* 缩略图区域 */}
             <div className="relative aspect-[4/3] overflow-hidden bg-nexus-bg-secondary">
                 {/* 骨架屏占位 */}
@@ -109,7 +163,7 @@ export function MediaCard({ item, index, onFavoriteToggle, onClick }: MediaCardP
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
                 {/* 类型标识 */}
-                <div className="absolute top-2 left-2">
+                <div className="absolute top-2 right-10">
                     {item.type === 'video' ? (
                         <div className="flex items-center gap-1 px-2 py-1 rounded bg-black/60 backdrop-blur-sm">
                             <Play className="w-3 h-3 text-neon-green fill-neon-green" />
@@ -148,10 +202,14 @@ export function MediaCard({ item, index, onFavoriteToggle, onClick }: MediaCardP
                     />
                 </motion.button>
 
-                {/* 更多操作按钮 */}
-                <button className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <MoreHorizontal className="w-4 h-4 text-white" />
-                </button>
+                {/* 相似度评分 (语义搜索时显示) */}
+                {item.similarityScore !== undefined && item.similarityScore > 0 && (
+                    <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-neon-green/20 backdrop-blur-sm border border-neon-green/30">
+                        <span className="text-xs text-neon-green font-medium">
+                            {Math.round(item.similarityScore * 100)}% 匹配
+                        </span>
+                    </div>
+                )}
 
                 {/* 悬浮信息 */}
                 <div className="absolute bottom-2 left-2 right-12 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -203,6 +261,11 @@ export function MediaCard({ item, index, onFavoriteToggle, onClick }: MediaCardP
                 <div className="absolute inset-0 rounded-xl border border-neon-cyan/30" />
                 <div className="absolute inset-0 rounded-xl shadow-neon-cyan" />
             </div>
+
+            {/* 选中状态遮罩 */}
+            {isSelected && (
+                <div className="absolute inset-0 rounded-xl bg-neon-cyan/10 pointer-events-none" />
+            )}
         </motion.div>
     )
 }

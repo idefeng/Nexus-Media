@@ -19,6 +19,8 @@ export interface MediaItem {
     createdAt: string
     updatedAt: string
     isFavorite: boolean
+    aiTags: string[]
+    similarityScore?: number
 }
 
 /**
@@ -39,6 +41,7 @@ export interface MediaItemRecord {
     is_favorite: number
     created_at: string
     updated_at: string
+    ai_tags: string | null
 }
 
 /**
@@ -68,7 +71,8 @@ export function recordToMediaItem(record: MediaItemRecord): MediaItem {
         modifiedTime: record.modified_time,
         createdAt: record.created_at,
         updatedAt: record.updated_at,
-        isFavorite: record.is_favorite === 1
+        isFavorite: record.is_favorite === 1,
+        aiTags: JSON.parse(record.ai_tags || '[]')
     }
 }
 

@@ -23,7 +23,8 @@ export const mockMediaItems: MediaItem[] = [
         modifiedTime: '2026-02-05T10:30:00Z',
         createdAt: '2026-02-05T10:30:00Z',
         updatedAt: '2026-02-05T10:30:00Z',
-        isFavorite: true
+        isFavorite: true,
+        aiTags: []
     },
     {
         id: 2,
@@ -42,7 +43,8 @@ export const mockMediaItems: MediaItem[] = [
         modifiedTime: '2026-02-04T08:15:00Z',
         createdAt: '2026-02-04T08:15:00Z',
         updatedAt: '2026-02-04T08:15:00Z',
-        isFavorite: false
+        isFavorite: false,
+        aiTags: []
     },
     {
         id: 3,
@@ -61,7 +63,8 @@ export const mockMediaItems: MediaItem[] = [
         modifiedTime: '2026-02-03T14:20:00Z',
         createdAt: '2026-02-03T14:20:00Z',
         updatedAt: '2026-02-03T14:20:00Z',
-        isFavorite: true
+        isFavorite: true,
+        aiTags: []
     },
     {
         id: 4,
@@ -80,7 +83,8 @@ export const mockMediaItems: MediaItem[] = [
         modifiedTime: '2026-02-02T16:45:00Z',
         createdAt: '2026-02-02T16:45:00Z',
         updatedAt: '2026-02-02T16:45:00Z',
-        isFavorite: false
+        isFavorite: false,
+        aiTags: []
     },
     {
         id: 5,
@@ -99,7 +103,8 @@ export const mockMediaItems: MediaItem[] = [
         modifiedTime: '2026-02-01T11:00:00Z',
         createdAt: '2026-02-01T11:00:00Z',
         updatedAt: '2026-02-01T11:00:00Z',
-        isFavorite: true
+        isFavorite: true,
+        aiTags: []
     },
     {
         id: 6,
@@ -118,7 +123,8 @@ export const mockMediaItems: MediaItem[] = [
         modifiedTime: '2026-01-30T09:30:00Z',
         createdAt: '2026-01-30T09:30:00Z',
         updatedAt: '2026-01-30T09:30:00Z',
-        isFavorite: false
+        isFavorite: false,
+        aiTags: []
     },
     {
         id: 7,
@@ -137,7 +143,8 @@ export const mockMediaItems: MediaItem[] = [
         modifiedTime: '2026-01-28T13:15:00Z',
         createdAt: '2026-01-28T13:15:00Z',
         updatedAt: '2026-01-28T13:15:00Z',
-        isFavorite: false
+        isFavorite: false,
+        aiTags: []
     },
     {
         id: 8,
@@ -156,7 +163,8 @@ export const mockMediaItems: MediaItem[] = [
         modifiedTime: '2026-01-25T22:00:00Z',
         createdAt: '2026-01-25T22:00:00Z',
         updatedAt: '2026-01-25T22:00:00Z',
-        isFavorite: true
+        isFavorite: true,
+        aiTags: []
     },
     {
         id: 9,
@@ -175,7 +183,8 @@ export const mockMediaItems: MediaItem[] = [
         modifiedTime: '2026-01-22T19:45:00Z',
         createdAt: '2026-01-22T19:45:00Z',
         updatedAt: '2026-01-22T19:45:00Z',
-        isFavorite: false
+        isFavorite: false,
+        aiTags: []
     },
     {
         id: 10,
@@ -194,7 +203,8 @@ export const mockMediaItems: MediaItem[] = [
         modifiedTime: '2026-01-20T10:00:00Z',
         createdAt: '2026-01-20T10:00:00Z',
         updatedAt: '2026-01-20T10:00:00Z',
-        isFavorite: false
+        isFavorite: false,
+        aiTags: []
     },
     {
         id: 11,
@@ -213,7 +223,8 @@ export const mockMediaItems: MediaItem[] = [
         modifiedTime: '2026-01-18T07:30:00Z',
         createdAt: '2026-01-18T07:30:00Z',
         updatedAt: '2026-01-18T07:30:00Z',
-        isFavorite: true
+        isFavorite: true,
+        aiTags: []
     },
     {
         id: 12,
@@ -232,7 +243,8 @@ export const mockMediaItems: MediaItem[] = [
         modifiedTime: '2026-01-15T21:15:00Z',
         createdAt: '2026-01-15T21:15:00Z',
         updatedAt: '2026-01-15T21:15:00Z',
-        isFavorite: true
+        isFavorite: true,
+        aiTags: []
     }
 ]
 

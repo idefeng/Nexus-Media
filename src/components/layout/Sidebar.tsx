@@ -1,6 +1,6 @@
 /**
  * 侧边栏组件
- * 包含导航菜单和标签云
+ * 包含导航菜单、标签云和高级筛选面板
  */
 import { motion } from 'framer-motion'
 import {
@@ -11,6 +11,7 @@ import {
     Image,
     Video
 } from 'lucide-react'
+import { FilterPanel, type FilterState, defaultFilterState } from './FilterPanel'
 import type { ViewType, TagStat } from '../../types'
 
 interface SidebarProps {
@@ -26,6 +27,10 @@ interface SidebarProps {
         images: number
         videos: number
     }
+    // 高级筛选
+    filters?: FilterState
+    onFiltersChange?: (filters: FilterState) => void
+    availableTags?: string[]
 }
 
 // 导航菜单配置
@@ -41,8 +46,19 @@ export function Sidebar({
     tagStats,
     selectedTag,
     onTagSelect,
-    mediaCount
+    mediaCount,
+    filters = defaultFilterState,
+    onFiltersChange,
+    availableTags = []
 }: SidebarProps) {
+    const handleFiltersChange = (newFilters: FilterState) => {
+        onFiltersChange?.(newFilters)
+    }
+
+    const handleClearFilters = () => {
+        onFiltersChange?.(defaultFilterState)
+    }
+
     return (
         <motion.aside
             initial={{ x: -20, opacity: 0 }}
@@ -77,8 +93,8 @@ export function Sidebar({
                             <Icon className={`w-5 h-5 ${isActive ? 'text-neon-cyan' : ''}`} />
                             <span className="flex-1 text-left">{item.label}</span>
                             <span className={`text-xs px-2 py-0.5 rounded-full ${isActive
-                                    ? 'bg-neon-cyan/20 text-neon-cyan'
-                                    : 'bg-nexus-bg-tertiary text-nexus-text-muted'
+                                ? 'bg-neon-cyan/20 text-neon-cyan'
+                                : 'bg-nexus-bg-tertiary text-nexus-text-muted'
                                 }`}>
                                 {count}
                             </span>
@@ -104,6 +120,16 @@ export function Sidebar({
                         <span className="text-xs text-nexus-text-muted">{mediaCount.videos}</span>
                     </div>
                 </div>
+
+                {/* 高级筛选面板 */}
+                {onFiltersChange && (
+                    <FilterPanel
+                        filters={filters}
+                        onFiltersChange={handleFiltersChange}
+                        availableTags={availableTags}
+                        onClearAll={handleClearFilters}
+                    />
+                )}
             </div>
 
             {/* 标签云 */}
@@ -137,8 +163,8 @@ export function Sidebar({
                             whileTap={{ scale: 0.95 }}
                             onClick={() => onTagSelect(selectedTag === tag.name ? null : tag.name)}
                             className={`tag-cloud-item ${selectedTag === tag.name
-                                    ? 'bg-neon-cyan/20 text-neon-cyan border-neon-cyan/30'
-                                    : ''
+                                ? 'bg-neon-cyan/20 text-neon-cyan border-neon-cyan/30'
+                                : ''
                                 }`}
                             style={{
                                 fontSize: `${Math.min(0.875 + tag.count * 0.05, 1.1)}rem`

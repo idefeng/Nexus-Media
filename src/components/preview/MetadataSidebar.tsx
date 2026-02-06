@@ -7,7 +7,7 @@ import { motion } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import {
     FileText, Calendar, HardDrive, ImageIcon,
-    FolderOpen, Edit3, Eye, Save
+    FolderOpen, Edit3, Eye, Save, Sparkles
 } from 'lucide-react'
 import { TagInput } from './TagInput'
 import type { MediaItem } from '../../types'
@@ -17,6 +17,7 @@ interface MetadataSidebarProps {
     allTags: string[]
     onTagsChange: (tags: string[]) => void
     onNotesChange: (notes: string) => void
+    onAdoptAiTag?: (tag: string) => void
 }
 
 // 格式化文件大小
@@ -44,7 +45,7 @@ function formatDate(dateString: string): string {
     }
 }
 
-export function MetadataSidebar({ item, allTags, onTagsChange, onNotesChange }: MetadataSidebarProps) {
+export function MetadataSidebar({ item, allTags, onTagsChange, onNotesChange, onAdoptAiTag }: MetadataSidebarProps) {
     const [notes, setNotes] = useState(item.notes || '')
     const [isEditing, setIsEditing] = useState(false)
     const [hasChanges, setHasChanges] = useState(false)
@@ -110,6 +111,37 @@ export function MetadataSidebar({ item, allTags, onTagsChange, onNotesChange }: 
                     />
                 </div>
 
+                {/* AI 建议标签 */}
+                {item.aiTags && item.aiTags.length > 0 && (
+                    <div className="p-4 border-b border-nexus-border">
+                        <h4 className="text-nexus-text-primary text-sm font-medium mb-3 flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-neon-pink" />
+                            AI 建议标签
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                            {item.aiTags
+                                .filter(tag => !item.tags.includes(tag))
+                                .map(tag => (
+                                    <button
+                                        key={tag}
+                                        onClick={() => onAdoptAiTag?.(tag)}
+                                        className="group px-2 py-1 text-xs rounded-full bg-gradient-to-r from-neon-pink/20 to-neon-purple/20 border border-neon-pink/30 text-neon-pink hover:from-neon-pink/30 hover:to-neon-purple/30 transition-all"
+                                        title="点击采纳为正式标签"
+                                    >
+                                        <span className="group-hover:hidden">{tag}</span>
+                                        <span className="hidden group-hover:inline">+ {tag}</span>
+                                    </button>
+                                ))
+                            }
+                            {item.aiTags.filter(tag => !item.tags.includes(tag)).length === 0 && (
+                                <p className="text-nexus-text-muted text-xs italic">
+                                    所有 AI 建议已采纳
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {/* 备注区域 */}
                 <div className="p-4 border-b border-nexus-border">
                     <div className="flex items-center justify-between mb-3">
@@ -130,8 +162,8 @@ export function MetadataSidebar({ item, allTags, onTagsChange, onNotesChange }: 
                             <button
                                 onClick={() => setIsEditing(!isEditing)}
                                 className={`p-1.5 rounded transition-colors ${isEditing
-                                        ? 'bg-neon-cyan/20 text-neon-cyan'
-                                        : 'hover:bg-nexus-bg-tertiary text-nexus-text-muted'
+                                    ? 'bg-neon-cyan/20 text-neon-cyan'
+                                    : 'hover:bg-nexus-bg-tertiary text-nexus-text-muted'
                                     }`}
                                 title={isEditing ? '预览' : '编辑'}
                             >

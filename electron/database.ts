@@ -23,6 +23,8 @@ export interface MediaItemRecord {
     is_favorite: number
     created_at: string
     updated_at: string
+    ai_tags: string | null
+    embedding: Buffer | null
 }
 
 let db: Database.Database
@@ -62,7 +64,9 @@ export async function initDatabase(): Promise<void> {
             duration INTEGER,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            is_favorite INTEGER DEFAULT 0
+            is_favorite INTEGER DEFAULT 0,
+            ai_tags TEXT DEFAULT NULL,
+            embedding BLOB DEFAULT NULL
         );
 
         CREATE INDEX IF NOT EXISTS idx_media_type ON media_items(type);
@@ -70,6 +74,25 @@ export async function initDatabase(): Promise<void> {
         CREATE INDEX IF NOT EXISTS idx_media_created ON media_items(created_at);
     `
     db.exec(schema)
+
+    // 迁移：为现有数据库添加 AI 相关列（如果不存在）
+    try {
+        const columns = db.prepare("PRAGMA table_info(media_items)").all() as { name: string }[]
+        const columnNames = columns.map(c => c.name)
+
+        if (!columnNames.includes('ai_tags')) {
+            db.exec('ALTER TABLE media_items ADD COLUMN ai_tags TEXT DEFAULT NULL')
+            console.log('数据库迁移：添加 ai_tags 列')
+        }
+
+        if (!columnNames.includes('embedding')) {
+            db.exec('ALTER TABLE media_items ADD COLUMN embedding BLOB DEFAULT NULL')
+            console.log('数据库迁移：添加 embedding 列')
+        }
+    } catch (err) {
+        console.error('数据库迁移失败:', err)
+    }
+
     console.log('Better-SQLite3 数据库已连接:', dbPath)
 }
 
@@ -201,6 +224,94 @@ export function getAllTags(): string[] {
  */
 export function getMediaItem(id: number): MediaItemRecord | null {
     return db.prepare('SELECT * FROM media_items WHERE id = ?').get(id) as MediaItemRecord | null
+}
+
+/**
+ * 更新 AI 标签
+ */
+export function updateAiTags(id: number, aiTags: string[]): void {
+    const tagsJson = JSON.stringify(aiTags)
+    db.prepare('UPDATE media_items SET ai_tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(tagsJson, id)
+}
+
+/**
+ * 更新 Embedding 向量
+ */
+export function updateEmbedding(id: number, embedding: number[]): void {
+    // 将 float32 数组转换为 Buffer
+    const buffer = Buffer.from(new Float32Array(embedding).buffer)
+    db.prepare('UPDATE media_items SET embedding = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(buffer, id)
+}
+
+/**
+ * 获取待 AI 处理的媒体项（只返回图片，没有 embedding 的）
+ */
+export function getPendingAiItems(limit: number = 10): MediaItemRecord[] {
+    return db.prepare(`
+        SELECT * FROM media_items 
+        WHERE type = 'image' 
+          AND thumbnail_path IS NOT NULL 
+          AND embedding IS NULL 
+        ORDER BY created_at DESC 
+        LIMIT ?
+    `).all(limit) as MediaItemRecord[]
+}
+
+/**
+ * 获取所有有 embedding 的媒体项（用于语义搜索）
+ */
+export function getAllEmbeddings(): { id: number; path: string; embedding: Buffer }[] {
+    return db.prepare(`
+        SELECT id, path, embedding FROM media_items 
+        WHERE embedding IS NOT NULL
+    `).all() as { id: number; path: string; embedding: Buffer }[]
+}
+
+/**
+ * 删除单个媒体项
+ */
+export function deleteMediaItem(id: number): boolean {
+    const result = db.prepare('DELETE FROM media_items WHERE id = ?').run(id)
+    return result.changes > 0
+}
+
+/**
+ * 批量删除媒体项
+ */
+export function deleteMediaItems(ids: number[]): number {
+    if (ids.length === 0) return 0
+
+    const placeholders = ids.map(() => '?').join(',')
+    const result = db.prepare(`DELETE FROM media_items WHERE id IN (${placeholders})`).run(...ids)
+    return result.changes
+}
+
+/**
+ * 批量更新标签（添加标签到多个项目）
+ */
+export function batchAddTags(ids: number[], tagsToAdd: string[]): number {
+    if (ids.length === 0 || tagsToAdd.length === 0) return 0
+
+    let updated = 0
+    const selectStmt = db.prepare('SELECT id, tags FROM media_items WHERE id = ?')
+    const updateStmt = db.prepare('UPDATE media_items SET tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+
+    const transaction = db.transaction(() => {
+        for (const id of ids) {
+            const row = selectStmt.get(id) as { id: number; tags: string } | undefined
+            if (row) {
+                const existingTags: string[] = JSON.parse(row.tags || '[]')
+                const newTags = Array.from(new Set([...existingTags, ...tagsToAdd]))
+                updateStmt.run(JSON.stringify(newTags), id)
+                updated++
+            }
+        }
+    })
+
+    transaction()
+    return updated
 }
 
 /**

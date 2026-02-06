@@ -20,6 +20,7 @@ interface DetailModalProps {
     onTagsChange: (id: number, tags: string[]) => void
     onNotesChange: (id: number, notes: string) => void
     onFavoriteToggle: (id: number) => void
+    onAdoptAiTag?: (id: number, tag: string) => void
 }
 
 export function DetailModal({
@@ -31,7 +32,8 @@ export function DetailModal({
     onNavigate,
     onTagsChange,
     onNotesChange,
-    onFavoriteToggle
+    onFavoriteToggle,
+    onAdoptAiTag
 }: DetailModalProps) {
     // 当前索引
     const currentIndex = useMemo(() => {
@@ -121,8 +123,8 @@ export function DetailModal({
                     <button
                         onClick={() => onFavoriteToggle(item.id)}
                         className={`absolute top-4 right-16 z-10 p-2 rounded-full transition-colors ${item.isFavorite
-                                ? 'bg-neon-pink/20 hover:bg-neon-pink/30'
-                                : 'bg-white/10 hover:bg-white/20'
+                            ? 'bg-neon-pink/20 hover:bg-neon-pink/30'
+                            : 'bg-white/10 hover:bg-white/20'
                             }`}
                         title={item.isFavorite ? '取消收藏' : '添加收藏'}
                     >
@@ -191,6 +193,7 @@ export function DetailModal({
                         allTags={allTags}
                         onTagsChange={(tags) => onTagsChange(item.id, tags)}
                         onNotesChange={(notes) => onNotesChange(item.id, notes)}
+                        onAdoptAiTag={onAdoptAiTag ? (tag) => onAdoptAiTag(item.id, tag) : undefined}
                     />
                 </motion.div>
             )}

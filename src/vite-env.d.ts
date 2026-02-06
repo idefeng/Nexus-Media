@@ -16,6 +16,7 @@ interface MediaItemRecord {
     is_favorite: number
     created_at: string
     updated_at: string
+    ai_tags: string | null
 }
 
 // 扫描进度信息
@@ -71,6 +72,34 @@ interface Window {
             updateNotes: (id: number, notes: string) => Promise<{ success: boolean }>
             getAllTags: () => Promise<{ success: boolean; tags: string[] }>
             getItem: (id: number) => Promise<{ success: boolean; item: MediaItemRecord | null }>
+        }
+        ai: {
+            getStatus: () => Promise<{ running: boolean; ready: boolean }>
+            analyze: (imagePath: string) => Promise<{
+                success: boolean
+                tags?: { name: string; confidence: number }[]
+                embedding?: number[]
+                error?: string
+            }>
+            semanticSearch: (query: string, limit?: number) => Promise<{
+                success: boolean
+                results?: { id: number; path: string; similarity: number }[]
+                error?: string
+            }>
+            adoptTag: (id: number, tag: string) => Promise<{
+                success: boolean
+                tags?: string[]
+                error?: string
+            }>
+        }
+        shell: {
+            showInExplorer: (filePath: string) => Promise<{ success: boolean; error?: string }>
+            copyPath: (filePath: string) => Promise<{ success: boolean; error?: string }>
+        }
+        batch: {
+            delete: (ids: number[]) => Promise<{ success: boolean; deleted?: number; error?: string }>
+            addTags: (ids: number[], tags: string[]) => Promise<{ success: boolean; updated?: number; error?: string }>
+            deleteOne: (id: number) => Promise<{ success: boolean; error?: string }>
         }
     }
 }

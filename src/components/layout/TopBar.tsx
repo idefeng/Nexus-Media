@@ -1,8 +1,9 @@
 /**
  * 顶部标题栏组件
- * 包含窗口控制按钮、搜索框、添加文件夹按钮和扫描状态
+ * 包含窗口控制按钮、搜索框（支持语义搜索）、添加文件夹按钮和扫描状态
  */
-import { motion } from 'framer-motion'
+import { useState, useEffect, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
     Search,
     FolderPlus,
@@ -10,26 +11,95 @@ import {
     Square,
     X,
     Sparkles,
-    Loader2
+    Loader2,
+    RefreshCw,
+    Brain,
+    Zap
 } from 'lucide-react'
+
+interface SemanticSearchResult {
+    id: number
+    score: number
+    path: string
+}
 
 interface TopBarProps {
     searchQuery: string
     onSearchChange: (query: string) => void
     onAddFolder: () => void
+    onRefresh?: () => Promise<void>
     isScanning?: boolean
     scanStatus?: string
+    // 语义搜索
+    onSemanticSearch?: (query: string) => Promise<SemanticSearchResult[]>
+    onSemanticResults?: (results: SemanticSearchResult[] | null) => void
+    isSemanticSearchEnabled?: boolean
 }
 
 export function TopBar({
     searchQuery,
     onSearchChange,
     onAddFolder,
+    onRefresh,
     isScanning = false,
-    scanStatus = ''
+    scanStatus = '',
+    onSemanticSearch,
+    onSemanticResults,
+    isSemanticSearchEnabled = true
 }: TopBarProps) {
+    const [isRefreshing, setIsRefreshing] = useState(false)
+    const [isSemanticMode, setIsSemanticMode] = useState(false)
+    const [isSearching, setIsSearching] = useState(false)
+    const [semanticResults, setSemanticResults] = useState<SemanticSearchResult[] | null>(null)
+
     // 窗口控制（检查是否在 Electron 环境）
     const isElectron = typeof window !== 'undefined' && window.electronAPI
+
+    // 判断是否可能是描述性搜索（非文件名）
+    const isDescriptiveQuery = useCallback((query: string): boolean => {
+        if (!query.trim() || query.length < 3) return false
+
+        // 如果包含文件扩展名，可能是文件名搜索
+        const fileExtensions = /\.(jpg|jpeg|png|gif|bmp|webp|mp4|avi|mkv|mov|wmv)$/i
+        if (fileExtensions.test(query)) return false
+
+        // 如果包含路径分隔符，可能是路径搜索
+        if (query.includes('/') || query.includes('\\')) return false
+
+        // 中文或较长的英文短语更可能是描述性搜索
+        const hasChinese = /[\u4e00-\u9fa5]/.test(query)
+        const hasSpaces = query.includes(' ')
+
+        return hasChinese || hasSpaces || query.length >= 5
+    }, [])
+
+    // 防抖执行语义搜索
+    useEffect(() => {
+        if (!isSemanticMode || !onSemanticSearch || !searchQuery.trim()) {
+            setSemanticResults(null)
+            onSemanticResults?.(null)
+            return
+        }
+
+        const timer = setTimeout(async () => {
+            if (isDescriptiveQuery(searchQuery)) {
+                setIsSearching(true)
+                try {
+                    const results = await onSemanticSearch(searchQuery)
+                    setSemanticResults(results)
+                    onSemanticResults?.(results)
+                } catch (error) {
+                    console.error('语义搜索失败:', error)
+                    setSemanticResults(null)
+                    onSemanticResults?.(null)
+                } finally {
+                    setIsSearching(false)
+                }
+            }
+        }, 500) // 500ms 防抖
+
+        return () => clearTimeout(timer)
+    }, [searchQuery, isSemanticMode, onSemanticSearch, onSemanticResults, isDescriptiveQuery])
 
     const handleMinimize = () => {
         if (isElectron) {
@@ -46,6 +116,26 @@ export function TopBar({
     const handleClose = () => {
         if (isElectron) {
             window.electronAPI.window.close()
+        }
+    }
+
+    const handleRefresh = async () => {
+        if (onRefresh && !isRefreshing) {
+            setIsRefreshing(true)
+            try {
+                await onRefresh()
+            } finally {
+                setIsRefreshing(false)
+            }
+        }
+    }
+
+    const toggleSemanticMode = () => {
+        setIsSemanticMode(!isSemanticMode)
+        if (isSemanticMode) {
+            // 关闭语义搜索时清除结果
+            setSemanticResults(null)
+            onSemanticResults?.(null)
         }
     }
 
@@ -84,22 +174,74 @@ export function TopBar({
                     </motion.div>
                 ) : (
                     <div className="relative group">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-nexus-text-muted group-focus-within:text-neon-cyan transition-colors" />
+                        {/* 搜索图标或 AI 图标 */}
+                        {isSearching ? (
+                            <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neon-purple animate-spin" />
+                        ) : isSemanticMode ? (
+                            <Brain className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neon-purple" />
+                        ) : (
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-nexus-text-muted group-focus-within:text-neon-cyan transition-colors" />
+                        )}
+
                         <input
                             type="text"
-                            placeholder="搜索媒体资源..."
+                            placeholder={isSemanticMode ? "输入描述进行 AI 语义搜索..." : "搜索媒体资源..."}
                             value={searchQuery}
                             onChange={(e) => onSearchChange(e.target.value)}
-                            className="neon-input pl-10 pr-4"
+                            className={`neon-input pl-10 pr-20 ${isSemanticMode ? 'border-neon-purple/30 focus:border-neon-purple' : ''}`}
                         />
+
+                        {/* 语义搜索切换按钮 */}
+                        {isSemanticSearchEnabled && onSemanticSearch && (
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={toggleSemanticMode}
+                                className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${isSemanticMode
+                                    ? 'bg-neon-purple/20 text-neon-purple border border-neon-purple/30'
+                                    : 'bg-white/5 text-nexus-text-muted hover:bg-white/10'
+                                    }`}
+                                title={isSemanticMode ? '关闭 AI 搜索' : '开启 AI 语义搜索'}
+                            >
+                                <Zap className="w-3 h-3" />
+                                <span>AI</span>
+                            </motion.button>
+                        )}
+
                         {/* 搜索框发光效果 */}
-                        <div className="absolute inset-0 rounded-lg bg-neon-cyan/5 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none" />
+                        <div className={`absolute inset-0 rounded-lg ${isSemanticMode ? 'bg-neon-purple/5' : 'bg-neon-cyan/5'} opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none`} />
                     </div>
                 )}
+
+                {/* 语义搜索结果提示 */}
+                <AnimatePresence>
+                    {isSemanticMode && semanticResults && semanticResults.length > 0 && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -5 }}
+                            className="absolute mt-1 text-xs text-neon-purple"
+                        >
+                            找到 {semanticResults.length} 个语义匹配结果
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
 
-            {/* 右侧 - 添加按钮和窗口控制 */}
+            {/* 右侧 - 刷新、添加按钮和窗口控制 */}
             <div className="flex items-center gap-2 no-drag">
+                {/* 刷新按钮 */}
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+                    title="刷新媒体列表"
+                >
+                    <RefreshCw className={`w-4 h-4 text-nexus-text-secondary ${isRefreshing ? 'animate-spin' : ''}`} />
+                </motion.button>
+
                 {/* 添加文件夹按钮 */}
                 <motion.button
                     whileHover={{ scale: 1.05 }}
