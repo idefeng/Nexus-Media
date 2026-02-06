@@ -2,10 +2,18 @@
  * Electron 主进程
  * 负责创建窗口、处理 IPC 通信、文件扫描和数据库操作
  */
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, protocol, net } from 'electron'
 import path from 'path'
+import { pathToFileURL } from 'url'
 import { initDatabase, insertMediaItems, getAllMediaItems, getMediaStats, getMediaCount, toggleFavorite, closeDatabase } from './database'
 import { scanFolders, type ScannedFile, type ScanProgress } from './scanner'
+
+import { initThumbnailsDir, startThumbnailBatch } from './thumbnails'
+
+// 注册自定义协议以加载本地文件
+protocol.registerSchemesAsPrivileged([
+    { scheme: 'nexus-media', privileges: { bypassCSP: true, standard: true, secure: true, supportFetchAPI: true, stream: true } }
+])
 
 // 开发环境标识
 const isDev = !app.isPackaged
@@ -26,7 +34,7 @@ function createWindow() {
             nodeIntegration: false,
             contextIsolation: true,
             preload: path.join(__dirname, 'preload.js'),
-            webSecurity: true
+            webSecurity: true // 保持开启以增强安全性
         }
     })
 
@@ -45,6 +53,32 @@ function createWindow() {
 
 // 应用初始化
 app.whenReady().then(async () => {
+    // 注册本地资源处理器
+    protocol.handle('nexus-media', (request) => {
+        try {
+            // 使用 URL 对象解析，避免手动替换字符串导致的路径错误
+            const url = new URL(request.url)
+            // 路径通常在 hostname 之后，我们需要获取完整的路径部分
+            // 格式约定为: nexus-media://local/C:/path/to/file
+            let filePath = decodeURIComponent(url.pathname)
+
+            // 在 Windows 上，pathname 可能会以 /C:/... 开头，需要去掉开头的斜杠
+            if (filePath.startsWith('/') && filePath.length > 2 && filePath[1].match(/[a-zA-Z]/) && filePath[2] === ':') {
+                filePath = filePath.substring(1)
+            } else if (filePath.startsWith('/') && !filePath.includes(':')) {
+                // 非 Windows 绝对路径或者相对路径处理
+                // 这里假设是绝对路径，如果不是 Windows 盘符开头
+            }
+
+            // 使用 pathToFileURL 转换为标准的 file:// 协议，处理跨平台差异
+            const fileUrl = pathToFileURL(filePath).toString()
+            return net.fetch(fileUrl)
+        } catch (error) {
+            console.error('协议处理失败:', error)
+            return new Response('Invalid path', { status: 400 })
+        }
+    })
+
     // 初始化数据库
     try {
         await initDatabase()
@@ -52,6 +86,9 @@ app.whenReady().then(async () => {
     } catch (error) {
         console.error('数据库初始化失败:', error)
     }
+
+    // 初始化缩略图目录
+    initThumbnailsDir()
 
     createWindow()
 
@@ -128,6 +165,9 @@ ipcMain.handle('scan:folders', async (_event, folderPaths: string[]) => {
 
         // 执行扫描
         const allFiles = await scanFolders(folderPaths, onProgress, 30)
+
+        // 启动后台缩略图生成任务
+        startThumbnailBatch()
 
         // 获取最终统计
         const stats = getMediaStats()

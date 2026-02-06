@@ -1,13 +1,13 @@
 /**
- * 数据库模块
- * 临时使用内存存储实现，后续可替换为 SQLite
+ * 数据库模块 - 使用 Better-SQLite3
+ * 负责底层数据持久化和查询优化
  */
+import Database from 'better-sqlite3'
 import { app } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import type { ScannedFile } from './scanner'
 
-// 媒体项数据库记录接口
 export interface MediaItemRecord {
     id: number
     path: string
@@ -25,161 +25,144 @@ export interface MediaItemRecord {
     updated_at: string
 }
 
-// 内存存储
-let mediaItems: MediaItemRecord[] = []
-let nextId = 1
-let dataFilePath: string = ''
+let db: Database.Database
 
-// 获取数据文件路径
-function getDataFilePath(): string {
-    if (dataFilePath) return dataFilePath
-    const userDataPath = app.getPath('userData')
-    dataFilePath = path.join(userDataPath, 'nexus_media_data.json')
-    return dataFilePath
-}
-
-// 从 JSON 文件加载数据
-function loadFromFile(): void {
-    try {
-        const filePath = getDataFilePath()
-        if (fs.existsSync(filePath)) {
-            const data = fs.readFileSync(filePath, 'utf-8')
-            const parsed = JSON.parse(data)
-            mediaItems = parsed.items || []
-            nextId = parsed.nextId || 1
-            console.log(`从文件加载了 ${mediaItems.length} 个媒体项`)
-        }
-    } catch (error) {
-        console.error('加载数据失败:', error)
-        mediaItems = []
-        nextId = 1
-    }
-}
-
-// 保存数据到 JSON 文件
-function saveToFile(): void {
-    try {
-        const filePath = getDataFilePath()
-        const dir = path.dirname(filePath)
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true })
-        }
-        fs.writeFileSync(filePath, JSON.stringify({ items: mediaItems, nextId }, null, 2))
-    } catch (error) {
-        console.error('保存数据失败:', error)
-    }
-}
-
-// 初始化数据库
+/**
+ * 初始化数据库
+ */
 export async function initDatabase(): Promise<void> {
-    loadFromFile()
-    console.log('数据库初始化完成 (内存模式)')
-}
+    const userDataPath = app.getPath('userData')
+    const dbPath = path.join(userDataPath, 'nexus_media.db')
 
-// 关闭数据库
-export function closeDatabase(): void {
-    saveToFile()
-    console.log('数据已保存')
-}
-
-/**
- * 批量插入媒体项（跳过已存在的路径）
- */
-export function insertMediaItems(files: ScannedFile[]): number {
-    if (files.length === 0) return 0
-
-    const existingPaths = new Set(mediaItems.map(item => item.path))
-    const now = new Date().toISOString()
-    let insertedCount = 0
-
-    for (const file of files) {
-        if (existingPaths.has(file.path)) continue
-
-        const record: MediaItemRecord = {
-            id: nextId++,
-            path: file.path,
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            ext: file.ext,
-            birth_time: file.birthTime.toISOString(),
-            modified_time: file.modifiedTime.toISOString(),
-            tags: '[]',
-            notes: '',
-            thumbnail_path: null,
-            is_favorite: 0,
-            created_at: now,
-            updated_at: now
-        }
-
-        mediaItems.push(record)
-        existingPaths.add(file.path)
-        insertedCount++
+    // 确保目录存在
+    if (!fs.existsSync(userDataPath)) {
+        fs.mkdirSync(userDataPath, { recursive: true })
     }
 
-    // 异步保存到文件
-    if (insertedCount > 0) {
-        setImmediate(() => saveToFile())
-    }
+    db = new Database(dbPath)
 
-    return insertedCount
-}
+    // 执行架构初始化
+    // 注意：SQLite 不支持直接修改列名或删除列，如果需要生产环境迁移请使用迁移工具
+    // 这里我们先确保基础表结构正确
+    const schema = `
+        CREATE TABLE IF NOT EXISTS media_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            path TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            size INTEGER,
+            type TEXT CHECK(type IN ('image', 'video')) NOT NULL,
+            ext TEXT,
+            birth_time DATETIME,
+            modified_time DATETIME,
+            tags TEXT DEFAULT '[]',
+            notes TEXT DEFAULT '',
+            thumbnail_path TEXT,
+            width INTEGER,
+            height INTEGER,
+            duration INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            is_favorite INTEGER DEFAULT 0
+        );
 
-/**
- * 检查路径是否已存在
- */
-export function pathExists(filePath: string): boolean {
-    return mediaItems.some(item => item.path === filePath)
+        CREATE INDEX IF NOT EXISTS idx_media_type ON media_items(type);
+        CREATE INDEX IF NOT EXISTS idx_media_favorite ON media_items(is_favorite);
+        CREATE INDEX IF NOT EXISTS idx_media_created ON media_items(created_at);
+    `
+    db.exec(schema)
+    console.log('Better-SQLite3 数据库已连接:', dbPath)
 }
 
 /**
  * 获取所有媒体项
  */
 export function getAllMediaItems(): MediaItemRecord[] {
-    // 按创建时间降序排列
-    return [...mediaItems].sort((a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    )
+    return db.prepare('SELECT * FROM media_items ORDER BY created_at DESC').all() as MediaItemRecord[]
 }
 
 /**
- * 获取媒体项总数
+ * 批量插入媒体项
+ */
+export function insertMediaItems(files: ScannedFile[]): number {
+    if (files.length === 0) return 0
+
+    const insert = db.prepare(`
+        INSERT OR IGNORE INTO media_items (
+            path, name, size, type, ext, birth_time, modified_time
+        ) VALUES (
+            @path, @name, @size, @type, @ext, @birthTime, @modifiedTime
+        )
+    `)
+
+    let insertedCount = 0
+    const transaction = db.transaction((items: ScannedFile[]) => {
+        for (const item of items) {
+            try {
+                const result = insert.run({
+                    ...item,
+                    birthTime: item.birthTime instanceof Date ? item.birthTime.toISOString() : item.birthTime,
+                    modifiedTime: item.modifiedTime instanceof Date ? item.modifiedTime.toISOString() : item.modifiedTime
+                })
+                if (result.changes > 0) insertedCount++
+            } catch (err) {
+                console.error('插入数据库失败:', item.path, err)
+            }
+        }
+    })
+
+    transaction(files)
+    return insertedCount
+}
+
+/**
+ * 更新媒体项的缩略图路径
+ */
+export function updateThumbnailPath(id: number, thumbnailPath: string): void {
+    db.prepare('UPDATE media_items SET thumbnail_path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(thumbnailPath, id)
+}
+
+/**
+ * 获取待处理缩略图的任务（没有缩略图的项）
+ */
+export function getPendingThumbnailItems(): { id: number; path: string; type: 'image' | 'video' }[] {
+    return db.prepare('SELECT id, path, type FROM media_items WHERE thumbnail_path IS NULL')
+        .all() as { id: number; path: string; type: 'image' | 'video' }[]
+}
+
+/**
+ * 获取媒体统计
+ */
+export function getMediaStats() {
+    const images = db.prepare("SELECT COUNT(*) as count FROM media_items WHERE type = 'image'").get() as any
+    const videos = db.prepare("SELECT COUNT(*) as count FROM media_items WHERE type = 'video'").get() as any
+    return {
+        images: images.count,
+        videos: videos.count,
+        total: images.count + videos.count
+    }
+}
+
+/**
+ * 获取媒体总数
  */
 export function getMediaCount(): number {
-    return mediaItems.length
+    const result = db.prepare('SELECT COUNT(*) as count FROM media_items').get() as any
+    return result.count
 }
 
 /**
- * 获取按类型分组的统计
- */
-export function getMediaStats(): { images: number; videos: number; total: number } {
-    const images = mediaItems.filter(item => item.type === 'image').length
-    const videos = mediaItems.filter(item => item.type === 'video').length
-    return { images, videos, total: images + videos }
-}
-
-/**
- * 切换收藏状态
+ * 切换收藏
  */
 export function toggleFavorite(id: number): boolean {
-    const item = mediaItems.find(item => item.id === id)
-    if (!item) return false
-
-    item.is_favorite = item.is_favorite === 0 ? 1 : 0
-    item.updated_at = new Date().toISOString()
-
-    setImmediate(() => saveToFile())
+    db.prepare('UPDATE media_items SET is_favorite = 1 - is_favorite, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(id)
     return true
 }
 
 /**
- * 删除媒体项
+ * 关闭数据库
  */
-export function deleteMediaItem(id: number): boolean {
-    const index = mediaItems.findIndex(item => item.id === id)
-    if (index === -1) return false
-
-    mediaItems.splice(index, 1)
-    setImmediate(() => saveToFile())
-    return true
+export function closeDatabase(): void {
+    if (db) db.close()
 }

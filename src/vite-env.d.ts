@@ -26,7 +26,17 @@ interface Window {
             close: () => Promise<void>
         }
         dialog: {
-            selectFolder: () => Promise<string | null>
+            selectFolder: () => Promise<string[] | null>
+        }
+        media: {
+            getAll: () => Promise<{ success: boolean; items?: MediaItemRecord[]; message?: string }>
+            getStats: () => Promise<{ success: boolean; count: number }>
+            toggleFavorite: (id: number) => Promise<{ success: boolean }>
+        }
+        scan: {
+            folders: (paths: string[]) => Promise<{ success: boolean; message?: string }>
+            onProgress: (callback: (progress: any) => void) => () => void
+            onComplete: (callback: (info: any) => void) => () => void
         }
         database: {
             getMediaItems: (filters?: { type?: string; favorite?: boolean }) => Promise<MediaItem[]>

@@ -45,13 +45,19 @@ export interface MediaItemRecord {
  * 将数据库记录转换为前端 MediaItem
  */
 export function recordToMediaItem(record: MediaItemRecord): MediaItem {
+    // 确保缩略图路径使用了自定义协议
+    let thumbPath = record.thumbnail_path
+    if (thumbPath && !thumbPath.startsWith('nexus-media://')) {
+        thumbPath = `nexus-media://local/${thumbPath}`
+    }
+
     return {
         id: record.id,
         path: record.path,
         type: record.type,
         tags: JSON.parse(record.tags || '[]'),
         notes: record.notes || '',
-        thumbnailPath: record.thumbnail_path,
+        thumbnailPath: thumbPath,
         fileName: record.name,
         fileSize: record.size,
         ext: record.ext,

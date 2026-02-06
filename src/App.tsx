@@ -6,7 +6,8 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import { TopBar, Sidebar } from './components/layout'
 import { MediaGrid } from './components/media'
 import { mockTagStats } from './data/mockData'
-import type { ViewType, MediaItem, MediaItemRecord, recordToMediaItem, ScanProgress } from './types'
+import { recordToMediaItem } from './types'
+import type { ViewType, MediaItem, ScanProgress } from './types'
 
 function App() {
     // 状态管理
@@ -24,26 +25,10 @@ function App() {
 
         try {
             const result = await window.electronAPI.media.getAll()
+            console.log('从数据库加载结果:', result)
             if (result.success && result.items) {
-                const items: MediaItem[] = result.items.map((record: MediaItemRecord) => ({
-                    id: record.id,
-                    path: record.path,
-                    type: record.type,
-                    tags: JSON.parse(record.tags || '[]'),
-                    notes: record.notes || '',
-                    thumbnailPath: record.thumbnail_path,
-                    fileName: record.name,
-                    fileSize: record.size,
-                    ext: record.ext,
-                    width: null,
-                    height: null,
-                    duration: null,
-                    birthTime: record.birth_time,
-                    modifiedTime: record.modified_time,
-                    createdAt: record.created_at,
-                    updatedAt: record.updated_at,
-                    isFavorite: record.is_favorite === 1
-                }))
+                const items: MediaItem[] = result.items.map(recordToMediaItem)
+                console.log('转换后的媒体项:', items)
                 setMediaItems(items)
                 setDbMediaCount(items.length)
             }
@@ -69,7 +54,8 @@ function App() {
     // 初始化时加载数据
     useEffect(() => {
         loadMediaFromDB()
-    }, [loadMediaFromDB])
+        loadMediaStats()
+    }, [loadMediaFromDB, loadMediaStats])
 
     // 监听扫描进度
     useEffect(() => {
@@ -77,6 +63,7 @@ function App() {
 
         // 监听扫描进度
         const cleanupProgress = window.electronAPI.scan.onProgress((progress: ScanProgress) => {
+            console.log('收到扫描进度:', progress)
             setScanStatus(`正在扫描: ${progress.currentPath}\n已发现 ${progress.filesFound} 个文件`)
 
             // 实时添加新发现的文件到列表
@@ -91,7 +78,7 @@ function App() {
                             type: f.type,
                             tags: [],
                             notes: '',
-                            thumbnailPath: null,
+                            thumbnailPath: f.type === 'image' ? `nexus-media://local/${f.path}` : null,
                             fileName: f.name,
                             fileSize: f.size,
                             ext: f.ext,
