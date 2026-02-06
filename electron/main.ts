@@ -5,7 +5,7 @@
 import { app, BrowserWindow, ipcMain, dialog, protocol, net } from 'electron'
 import path from 'path'
 import { pathToFileURL } from 'url'
-import { initDatabase, insertMediaItems, getAllMediaItems, getMediaStats, getMediaCount, toggleFavorite, closeDatabase } from './database'
+import { initDatabase, insertMediaItems, getAllMediaItems, getMediaStats, getMediaCount, toggleFavorite, updateTags, updateNotes, getAllTags, getMediaItem, closeDatabase } from './database'
 import { scanFolders, type ScannedFile, type ScanProgress } from './scanner'
 
 import { initThumbnailsDir, startThumbnailBatch } from './thumbnails'
@@ -223,5 +223,49 @@ ipcMain.handle('media:toggleFavorite', (_event, id: number) => {
     } catch (error) {
         console.error('切换收藏状态失败:', error)
         return { success: false }
+    }
+})
+
+// 更新标签
+ipcMain.handle('media:updateTags', (_event, id: number, tags: string[]) => {
+    try {
+        updateTags(id, tags)
+        return { success: true }
+    } catch (error) {
+        console.error('更新标签失败:', error)
+        return { success: false }
+    }
+})
+
+// 更新备注
+ipcMain.handle('media:updateNotes', (_event, id: number, notes: string) => {
+    try {
+        updateNotes(id, notes)
+        return { success: true }
+    } catch (error) {
+        console.error('更新备注失败:', error)
+        return { success: false }
+    }
+})
+
+// 获取所有标签（用于自动补全）
+ipcMain.handle('media:getAllTags', () => {
+    try {
+        const tags = getAllTags()
+        return { success: true, tags }
+    } catch (error) {
+        console.error('获取标签失败:', error)
+        return { success: false, tags: [] }
+    }
+})
+
+// 获取单个媒体项
+ipcMain.handle('media:getItem', (_event, id: number) => {
+    try {
+        const item = getMediaItem(id)
+        return { success: true, item }
+    } catch (error) {
+        console.error('获取媒体项失败:', error)
+        return { success: false, item: null }
     }
 })

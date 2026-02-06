@@ -5,9 +5,9 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { TopBar, Sidebar } from './components/layout'
 import { MediaGrid } from './components/media'
-import { mockTagStats } from './data/mockData'
+import { DetailModal } from './components/preview'
 import { recordToMediaItem } from './types'
-import type { ViewType, MediaItem, ScanProgress } from './types'
+import type { ViewType, MediaItem, ScanProgress, TagStat } from './types'
 
 function App() {
     // 状态管理
@@ -18,6 +18,11 @@ function App() {
     const [isScanning, setIsScanning] = useState(false)
     const [scanStatus, setScanStatus] = useState<string>('')
     const [dbMediaCount, setDbMediaCount] = useState(0)
+
+    // 预览 Modal 状态
+    const [previewItem, setPreviewItem] = useState<MediaItem | null>(null)
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+    const [allTags, setAllTags] = useState<string[]>([])
 
     // 从数据库加载媒体项
     const loadMediaFromDB = useCallback(async () => {
@@ -34,6 +39,20 @@ function App() {
             }
         } catch (error) {
             console.error('加载媒体项失败:', error)
+        }
+    }, [])
+
+    // 加载所有标签（用于自动补全和标签云）
+    const loadAllTags = useCallback(async () => {
+        if (!window.electronAPI) return
+
+        try {
+            const result = await window.electronAPI.media.getAllTags()
+            if (result.success) {
+                setAllTags(result.tags)
+            }
+        } catch (error) {
+            console.error('获取标签失败:', error)
         }
     }, [])
 
@@ -55,7 +74,8 @@ function App() {
     useEffect(() => {
         loadMediaFromDB()
         loadMediaStats()
-    }, [loadMediaFromDB, loadMediaStats])
+        loadAllTags()
+    }, [loadMediaFromDB, loadMediaStats, loadAllTags])
 
     // 监听扫描进度
     useEffect(() => {
@@ -105,6 +125,7 @@ function App() {
             // 重新从数据库加载以获取正确的 ID
             setTimeout(() => {
                 loadMediaFromDB()
+                loadAllTags()
                 setScanStatus('')
             }, 2000)
         })
@@ -113,7 +134,7 @@ function App() {
             cleanupProgress()
             cleanupComplete()
         }
-    }, [loadMediaFromDB])
+    }, [loadMediaFromDB, loadAllTags])
 
     // 过滤和搜索媒体
     const filteredItems = useMemo(() => {
@@ -134,7 +155,7 @@ function App() {
             items = items.filter(item => item.tags.includes(selectedTag))
         }
 
-        // 搜索过滤
+        // 搜索过滤 - 搜索文件名、标签和备注
         if (searchQuery.trim()) {
             const query = searchQuery.toLowerCase()
             items = items.filter(item =>
@@ -146,6 +167,21 @@ function App() {
 
         return items
     }, [mediaItems, currentView, selectedTag, searchQuery])
+
+    // 计算标签统计
+    const tagStats = useMemo<TagStat[]>(() => {
+        const tagCounts = new Map<string, number>()
+
+        mediaItems.forEach(item => {
+            item.tags.forEach(tag => {
+                tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)
+            })
+        })
+
+        return Array.from(tagCounts.entries())
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count)
+    }, [mediaItems])
 
     // 媒体统计
     const mediaCount = useMemo(() => {
@@ -172,10 +208,79 @@ function App() {
             )
         )
 
+        // 更新预览项的收藏状态
+        if (previewItem && previewItem.id === id) {
+            setPreviewItem(prev => prev ? { ...prev, isFavorite: !prev.isFavorite } : null)
+        }
+
         // 同步到数据库
         if (window.electronAPI) {
             await window.electronAPI.media.toggleFavorite(id)
         }
+    }
+
+    // 更新标签
+    const handleTagsChange = async (id: number, tags: string[]) => {
+        // 更新本地状态
+        setMediaItems(prev =>
+            prev.map(item =>
+                item.id === id
+                    ? { ...item, tags }
+                    : item
+            )
+        )
+
+        // 更新预览项
+        if (previewItem && previewItem.id === id) {
+            setPreviewItem(prev => prev ? { ...prev, tags } : null)
+        }
+
+        // 同步到数据库
+        if (window.electronAPI) {
+            await window.electronAPI.media.updateTags(id, tags)
+            // 刷新标签列表
+            loadAllTags()
+        }
+    }
+
+    // 更新备注
+    const handleNotesChange = async (id: number, notes: string) => {
+        // 更新本地状态
+        setMediaItems(prev =>
+            prev.map(item =>
+                item.id === id
+                    ? { ...item, notes }
+                    : item
+            )
+        )
+
+        // 更新预览项
+        if (previewItem && previewItem.id === id) {
+            setPreviewItem(prev => prev ? { ...prev, notes } : null)
+        }
+
+        // 同步到数据库
+        if (window.electronAPI) {
+            await window.electronAPI.media.updateNotes(id, notes)
+        }
+    }
+
+    // 打开预览
+    const handleItemClick = (item: MediaItem) => {
+        setPreviewItem(item)
+        setIsPreviewOpen(true)
+    }
+
+    // 关闭预览
+    const handlePreviewClose = () => {
+        setIsPreviewOpen(false)
+        // 延迟清除预览项以保持动画流畅
+        setTimeout(() => setPreviewItem(null), 200)
+    }
+
+    // 预览导航
+    const handlePreviewNavigate = (item: MediaItem) => {
+        setPreviewItem(item)
     }
 
     // 添加文件夹
@@ -219,7 +324,7 @@ function App() {
                 <Sidebar
                     currentView={currentView}
                     onViewChange={setCurrentView}
-                    tagStats={mockTagStats}
+                    tagStats={tagStats}
                     selectedTag={selectedTag}
                     onTagSelect={setSelectedTag}
                     mediaCount={mediaCount}
@@ -232,12 +337,26 @@ function App() {
                         currentView={currentView}
                         selectedTag={selectedTag}
                         onFavoriteToggle={handleFavoriteToggle}
+                        onItemClick={handleItemClick}
                     />
                 </main>
             </div>
 
+            {/* 详情预览 Modal */}
+            <DetailModal
+                isOpen={isPreviewOpen}
+                item={previewItem}
+                items={filteredItems}
+                allTags={allTags}
+                onClose={handlePreviewClose}
+                onNavigate={handlePreviewNavigate}
+                onTagsChange={handleTagsChange}
+                onNotesChange={handleNotesChange}
+                onFavoriteToggle={handleFavoriteToggle}
+            />
+
             {/* 背景装饰效果 */}
-            <div className="fixed inset-0 pointer-events-none overflow-hidden">
+            <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
                 {/* 顶部渐变光晕 */}
                 <div className="absolute -top-40 -right-40 w-96 h-96 bg-neon-cyan/10 rounded-full blur-3xl" />
                 <div className="absolute -top-40 left-1/3 w-80 h-80 bg-neon-purple/10 rounded-full blur-3xl" />

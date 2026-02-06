@@ -84,7 +84,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     media: {
         getAll: () => ipcRenderer.invoke('media:getAll') as Promise<{ success: boolean; items: MediaItemRecord[]; message?: string }>,
         getStats: () => ipcRenderer.invoke('media:getStats') as Promise<{ success: boolean; stats: { images: number; videos: number; total: number }; count: number }>,
-        toggleFavorite: (id: number) => ipcRenderer.invoke('media:toggleFavorite', id) as Promise<{ success: boolean }>
+        toggleFavorite: (id: number) => ipcRenderer.invoke('media:toggleFavorite', id) as Promise<{ success: boolean }>,
+        updateTags: (id: number, tags: string[]) => ipcRenderer.invoke('media:updateTags', id, tags) as Promise<{ success: boolean }>,
+        updateNotes: (id: number, notes: string) => ipcRenderer.invoke('media:updateNotes', id, notes) as Promise<{ success: boolean }>,
+        getAllTags: () => ipcRenderer.invoke('media:getAllTags') as Promise<{ success: boolean; tags: string[] }>,
+        getItem: (id: number) => ipcRenderer.invoke('media:getItem', id) as Promise<{ success: boolean; item: MediaItemRecord | null }>
     }
 })
 
@@ -114,6 +118,10 @@ declare global {
                 getAll: () => Promise<{ success: boolean; items: MediaItemRecord[]; message?: string }>
                 getStats: () => Promise<{ success: boolean; stats: { images: number; videos: number; total: number }; count: number }>
                 toggleFavorite: (id: number) => Promise<{ success: boolean }>
+                updateTags: (id: number, tags: string[]) => Promise<{ success: boolean }>
+                updateNotes: (id: number, notes: string) => Promise<{ success: boolean }>
+                getAllTags: () => Promise<{ success: boolean; tags: string[] }>
+                getItem: (id: number) => Promise<{ success: boolean; item: MediaItemRecord | null }>
             }
         }
     }

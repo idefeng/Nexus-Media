@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Image, Video, Inbox } from 'lucide-react'
 import { VirtuosoGrid } from 'react-virtuoso'
 import { MediaCard } from './MediaCard'
-import { MediaCardSkeleton } from './MediaCardSkeleton'
 import type { MediaItem, ViewType } from '../../types'
 
 interface MediaGridProps {
@@ -14,6 +13,7 @@ interface MediaGridProps {
     currentView: ViewType
     selectedTag: string | null
     onFavoriteToggle: (id: number) => void
+    onItemClick?: (item: MediaItem) => void
 }
 
 // 视图标题配置
@@ -23,7 +23,7 @@ const viewTitles: Record<ViewType, { title: string; icon: React.ReactNode }> = {
     favorites: { title: '收藏夹', icon: <Inbox className="w-5 h-5" /> }
 }
 
-export function MediaGrid({ items, currentView, selectedTag, onFavoriteToggle }: MediaGridProps) {
+export function MediaGrid({ items, currentView, selectedTag, onFavoriteToggle, onItemClick }: MediaGridProps) {
     const { title } = viewTitles[currentView]
 
     return (
@@ -68,6 +68,7 @@ export function MediaGrid({ items, currentView, selectedTag, onFavoriteToggle }:
                                     item={item}
                                     index={index}
                                     onFavoriteToggle={onFavoriteToggle}
+                                    onClick={() => onItemClick?.(item)}
                                 />
                             )}
                         />

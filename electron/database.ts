@@ -161,6 +161,49 @@ export function toggleFavorite(id: number): boolean {
 }
 
 /**
+ * 更新标签
+ */
+export function updateTags(id: number, tags: string[]): void {
+    const tagsJson = JSON.stringify(tags)
+    db.prepare('UPDATE media_items SET tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(tagsJson, id)
+}
+
+/**
+ * 更新备注
+ */
+export function updateNotes(id: number, notes: string): void {
+    db.prepare('UPDATE media_items SET notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(notes, id)
+}
+
+/**
+ * 获取所有唯一标签（用于自动补全）
+ */
+export function getAllTags(): string[] {
+    const rows = db.prepare('SELECT tags FROM media_items WHERE tags IS NOT NULL AND tags != \'[]\'').all() as { tags: string }[]
+    const tagSet = new Set<string>()
+
+    for (const row of rows) {
+        try {
+            const tags = JSON.parse(row.tags) as string[]
+            tags.forEach(tag => tagSet.add(tag))
+        } catch {
+            // 忽略解析错误
+        }
+    }
+
+    return Array.from(tagSet).sort()
+}
+
+/**
+ * 获取单个媒体项
+ */
+export function getMediaItem(id: number): MediaItemRecord | null {
+    return db.prepare('SELECT * FROM media_items WHERE id = ?').get(id) as MediaItemRecord | null
+}
+
+/**
  * 关闭数据库
  */
 export function closeDatabase(): void {

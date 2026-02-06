@@ -11,6 +11,7 @@ interface MediaCardProps {
     item: MediaItem
     index: number
     onFavoriteToggle: (id: number) => void
+    onClick?: () => void
 }
 
 // 格式化文件大小
@@ -52,7 +53,7 @@ function getFileTypeStyle(type: 'image' | 'video') {
     }
 }
 
-export function MediaCard({ item, index, onFavoriteToggle }: MediaCardProps) {
+export function MediaCard({ item, index, onFavoriteToggle, onClick }: MediaCardProps) {
     const [isImageLoaded, setIsImageLoaded] = useState(false)
     const [hasError, setHasError] = useState(false)
     const fileStyle = getFileTypeStyle(item.type)
@@ -68,7 +69,8 @@ export function MediaCard({ item, index, onFavoriteToggle }: MediaCardProps) {
                 ease: "easeOut"
             }}
             whileHover={{ y: -4, transition: { duration: 0.2 } }}
-            className="media-card group relative"
+            className="media-card group relative cursor-pointer"
+            onClick={onClick}
         >
             {/* 缩略图区域 */}
             <div className="relative aspect-[4/3] overflow-hidden bg-nexus-bg-secondary">
@@ -136,8 +138,8 @@ export function MediaCard({ item, index, onFavoriteToggle }: MediaCardProps) {
                         onFavoriteToggle(item.id)
                     }}
                     className={`absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 ${item.isFavorite
-                            ? 'bg-neon-pink/20 backdrop-blur-sm'
-                            : 'bg-black/40 backdrop-blur-sm opacity-0 group-hover:opacity-100'
+                        ? 'bg-neon-pink/20 backdrop-blur-sm'
+                        : 'bg-black/40 backdrop-blur-sm opacity-0 group-hover:opacity-100'
                         }`}
                 >
                     <Heart
