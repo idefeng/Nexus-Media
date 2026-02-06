@@ -47,6 +47,8 @@ interface MediaItemRecord {
     is_favorite: number
     created_at: string
     updated_at: string
+    ai_tags: string | null
+    embedding: ArrayBuffer | null
 }
 
 // 暴露 API 到渲染进程
@@ -84,7 +86,45 @@ contextBridge.exposeInMainWorld('electronAPI', {
     media: {
         getAll: () => ipcRenderer.invoke('media:getAll') as Promise<{ success: boolean; items: MediaItemRecord[]; message?: string }>,
         getStats: () => ipcRenderer.invoke('media:getStats') as Promise<{ success: boolean; stats: { images: number; videos: number; total: number }; count: number }>,
-        toggleFavorite: (id: number) => ipcRenderer.invoke('media:toggleFavorite', id) as Promise<{ success: boolean }>
+        toggleFavorite: (id: number) => ipcRenderer.invoke('media:toggleFavorite', id) as Promise<{ success: boolean }>,
+        updateTags: (id: number, tags: string[]) => ipcRenderer.invoke('media:updateTags', id, tags) as Promise<{ success: boolean }>,
+        updateNotes: (id: number, notes: string) => ipcRenderer.invoke('media:updateNotes', id, notes) as Promise<{ success: boolean }>,
+        getAllTags: () => ipcRenderer.invoke('media:getAllTags') as Promise<{ success: boolean; tags: string[] }>,
+        getItem: (id: number) => ipcRenderer.invoke('media:getItem', id) as Promise<{ success: boolean; item: MediaItemRecord | null }>
+    },
+
+    // AI 功能
+    ai: {
+        getStatus: () => ipcRenderer.invoke('ai:getStatus') as Promise<{ running: boolean; ready: boolean }>,
+        analyze: (imagePath: string) => ipcRenderer.invoke('ai:analyze', imagePath) as Promise<{
+            success: boolean
+            tags?: { name: string; confidence: number }[]
+            embedding?: number[]
+            error?: string
+        }>,
+        semanticSearch: (query: string, limit?: number) => ipcRenderer.invoke('ai:semanticSearch', query, limit || 20) as Promise<{
+            success: boolean
+            results?: { id: number; path: string; similarity: number }[]
+            error?: string
+        }>,
+        adoptTag: (id: number, tag: string) => ipcRenderer.invoke('ai:adoptTag', id, tag) as Promise<{
+            success: boolean
+            tags?: string[]
+            error?: string
+        }>
+    },
+
+    // Shell 操作
+    shell: {
+        showInExplorer: (filePath: string) => ipcRenderer.invoke('shell:showInExplorer', filePath) as Promise<{ success: boolean; error?: string }>,
+        copyPath: (filePath: string) => ipcRenderer.invoke('shell:copyPath', filePath) as Promise<{ success: boolean; error?: string }>
+    },
+
+    // 批量操作
+    batch: {
+        delete: (ids: number[]) => ipcRenderer.invoke('media:batchDelete', ids) as Promise<{ success: boolean; deleted?: number; error?: string }>,
+        addTags: (ids: number[], tags: string[]) => ipcRenderer.invoke('media:batchAddTags', ids, tags) as Promise<{ success: boolean; updated?: number; error?: string }>,
+        deleteOne: (id: number) => ipcRenderer.invoke('media:delete', id) as Promise<{ success: boolean; error?: string }>
     }
 })
 
@@ -114,6 +154,38 @@ declare global {
                 getAll: () => Promise<{ success: boolean; items: MediaItemRecord[]; message?: string }>
                 getStats: () => Promise<{ success: boolean; stats: { images: number; videos: number; total: number }; count: number }>
                 toggleFavorite: (id: number) => Promise<{ success: boolean }>
+                updateTags: (id: number, tags: string[]) => Promise<{ success: boolean }>
+                updateNotes: (id: number, notes: string) => Promise<{ success: boolean }>
+                getAllTags: () => Promise<{ success: boolean; tags: string[] }>
+                getItem: (id: number) => Promise<{ success: boolean; item: MediaItemRecord | null }>
+            }
+            ai: {
+                getStatus: () => Promise<{ running: boolean; ready: boolean }>
+                analyze: (imagePath: string) => Promise<{
+                    success: boolean
+                    tags?: { name: string; confidence: number }[]
+                    embedding?: number[]
+                    error?: string
+                }>
+                semanticSearch: (query: string, limit?: number) => Promise<{
+                    success: boolean
+                    results?: { id: number; path: string; similarity: number }[]
+                    error?: string
+                }>
+                adoptTag: (id: number, tag: string) => Promise<{
+                    success: boolean
+                    tags?: string[]
+                    error?: string
+                }>
+            }
+            shell: {
+                showInExplorer: (filePath: string) => Promise<{ success: boolean; error?: string }>
+                copyPath: (filePath: string) => Promise<{ success: boolean; error?: string }>
+            }
+            batch: {
+                delete: (ids: number[]) => Promise<{ success: boolean; deleted?: number; error?: string }>
+                addTags: (ids: number[], tags: string[]) => Promise<{ success: boolean; updated?: number; error?: string }>
+                deleteOne: (id: number) => Promise<{ success: boolean; error?: string }>
             }
         }
     }

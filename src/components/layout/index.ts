@@ -1,2 +1,4 @@
 export { TopBar } from './TopBar'
 export { Sidebar } from './Sidebar'
+export { FilterPanel, defaultFilterState } from './FilterPanel'
+export type { FilterState } from './FilterPanel'

@@ -178,3 +178,101 @@ body {
 .no-drag {
   -webkit-app-region: no-drag;
 }
+
+/* ==================== 细滚动条 ==================== */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* ==================== Markdown 样式 ==================== */
+.prose {
+  color: #a0a0b0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.prose h1, .prose h2, .prose h3, .prose h4 {
+  color: #ffffff;
+  font-weight: 600;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+
+.prose h1 { font-size: 1.25rem; }
+.prose h2 { font-size: 1.125rem; }
+.prose h3 { font-size: 1rem; }
+
+.prose p {
+  margin-bottom: 0.75em;
+}
+
+.prose ul, .prose ol {
+  padding-left: 1.5em;
+  margin-bottom: 0.75em;
+}
+
+.prose li {
+  margin-bottom: 0.25em;
+}
+
+.prose code {
+  background: rgba(0, 240, 255, 0.1);
+  color: #00f0ff;
+  padding: 0.125em 0.375em;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.prose pre {
+  background: #12121a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1em;
+  overflow-x: auto;
+  margin-bottom: 0.75em;
+}
+
+.prose pre code {
+  background: transparent;
+  padding: 0;
+  color: #e0e0e0;
+}
+
+.prose blockquote {
+  border-left: 3px solid #bf00ff;
+  padding-left: 1em;
+  color: #a0a0b0;
+  font-style: italic;
+  margin: 0.75em 0;
+}
+
+.prose a {
+  color: #00f0ff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose a:hover {
+  color: #33f5ff;
+}
+
+.prose strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 1em 0;
+}

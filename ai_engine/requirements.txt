@@ -1,0 +1,18 @@
+# AI Engine Dependencies
+# PyTorch with CUDA 12.x support
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch
+torchvision
+
+# CLIP model
+open-clip-torch
+
+# API Server
+fastapi
+uvicorn[standard]
+
+# Image processing
+Pillow
+
+# Utilities
+numpy

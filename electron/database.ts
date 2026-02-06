@@ -1,13 +1,13 @@
 /**
- * 数据库模块
- * 临时使用内存存储实现，后续可替换为 SQLite
+ * 数据库模块 - 使用 Better-SQLite3
+ * 负责底层数据持久化和查询优化
  */
+import Database from 'better-sqlite3'
 import { app } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import type { ScannedFile } from './scanner'
 
-// 媒体项数据库记录接口
 export interface MediaItemRecord {
     id: number
     path: string
@@ -23,163 +23,300 @@ export interface MediaItemRecord {
     is_favorite: number
     created_at: string
     updated_at: string
+    ai_tags: string | null
+    embedding: Buffer | null
 }
 
-// 内存存储
-let mediaItems: MediaItemRecord[] = []
-let nextId = 1
-let dataFilePath: string = ''
+let db: Database.Database
 
-// 获取数据文件路径
-function getDataFilePath(): string {
-    if (dataFilePath) return dataFilePath
-    const userDataPath = app.getPath('userData')
-    dataFilePath = path.join(userDataPath, 'nexus_media_data.json')
-    return dataFilePath
-}
-
-// 从 JSON 文件加载数据
-function loadFromFile(): void {
-    try {
-        const filePath = getDataFilePath()
-        if (fs.existsSync(filePath)) {
-            const data = fs.readFileSync(filePath, 'utf-8')
-            const parsed = JSON.parse(data)
-            mediaItems = parsed.items || []
-            nextId = parsed.nextId || 1
-            console.log(`从文件加载了 ${mediaItems.length} 个媒体项`)
-        }
-    } catch (error) {
-        console.error('加载数据失败:', error)
-        mediaItems = []
-        nextId = 1
-    }
-}
-
-// 保存数据到 JSON 文件
-function saveToFile(): void {
-    try {
-        const filePath = getDataFilePath()
-        const dir = path.dirname(filePath)
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true })
-        }
-        fs.writeFileSync(filePath, JSON.stringify({ items: mediaItems, nextId }, null, 2))
-    } catch (error) {
-        console.error('保存数据失败:', error)
-    }
-}
-
-// 初始化数据库
+/**
+ * 初始化数据库
+ */
 export async function initDatabase(): Promise<void> {
-    loadFromFile()
-    console.log('数据库初始化完成 (内存模式)')
-}
+    const userDataPath = app.getPath('userData')
+    const dbPath = path.join(userDataPath, 'nexus_media.db')
 
-// 关闭数据库
-export function closeDatabase(): void {
-    saveToFile()
-    console.log('数据已保存')
-}
+    // 确保目录存在
+    if (!fs.existsSync(userDataPath)) {
+        fs.mkdirSync(userDataPath, { recursive: true })
+    }
 
-/**
- * 批量插入媒体项（跳过已存在的路径）
- */
-export function insertMediaItems(files: ScannedFile[]): number {
-    if (files.length === 0) return 0
+    db = new Database(dbPath)
 
-    const existingPaths = new Set(mediaItems.map(item => item.path))
-    const now = new Date().toISOString()
-    let insertedCount = 0
+    // 执行架构初始化
+    // 注意：SQLite 不支持直接修改列名或删除列，如果需要生产环境迁移请使用迁移工具
+    // 这里我们先确保基础表结构正确
+    const schema = `
+        CREATE TABLE IF NOT EXISTS media_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            path TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            size INTEGER,
+            type TEXT CHECK(type IN ('image', 'video')) NOT NULL,
+            ext TEXT,
+            birth_time DATETIME,
+            modified_time DATETIME,
+            tags TEXT DEFAULT '[]',
+            notes TEXT DEFAULT '',
+            thumbnail_path TEXT,
+            width INTEGER,
+            height INTEGER,
+            duration INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            is_favorite INTEGER DEFAULT 0,
+            ai_tags TEXT DEFAULT NULL,
+            embedding BLOB DEFAULT NULL
+        );
 
-    for (const file of files) {
-        if (existingPaths.has(file.path)) continue
+        CREATE INDEX IF NOT EXISTS idx_media_type ON media_items(type);
+        CREATE INDEX IF NOT EXISTS idx_media_favorite ON media_items(is_favorite);
+        CREATE INDEX IF NOT EXISTS idx_media_created ON media_items(created_at);
+    `
+    db.exec(schema)
 
-        const record: MediaItemRecord = {
-            id: nextId++,
-            path: file.path,
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            ext: file.ext,
-            birth_time: file.birthTime.toISOString(),
-            modified_time: file.modifiedTime.toISOString(),
-            tags: '[]',
-            notes: '',
-            thumbnail_path: null,
-            is_favorite: 0,
-            created_at: now,
-            updated_at: now
+    // 迁移：为现有数据库添加 AI 相关列（如果不存在）
+    try {
+        const columns = db.prepare("PRAGMA table_info(media_items)").all() as { name: string }[]
+        const columnNames = columns.map(c => c.name)
+
+        if (!columnNames.includes('ai_tags')) {
+            db.exec('ALTER TABLE media_items ADD COLUMN ai_tags TEXT DEFAULT NULL')
+            console.log('数据库迁移：添加 ai_tags 列')
         }
 
-        mediaItems.push(record)
-        existingPaths.add(file.path)
-        insertedCount++
+        if (!columnNames.includes('embedding')) {
+            db.exec('ALTER TABLE media_items ADD COLUMN embedding BLOB DEFAULT NULL')
+            console.log('数据库迁移：添加 embedding 列')
+        }
+    } catch (err) {
+        console.error('数据库迁移失败:', err)
     }
 
-    // 异步保存到文件
-    if (insertedCount > 0) {
-        setImmediate(() => saveToFile())
-    }
-
-    return insertedCount
-}
-
-/**
- * 检查路径是否已存在
- */
-export function pathExists(filePath: string): boolean {
-    return mediaItems.some(item => item.path === filePath)
+    console.log('Better-SQLite3 数据库已连接:', dbPath)
 }
 
 /**
  * 获取所有媒体项
  */
 export function getAllMediaItems(): MediaItemRecord[] {
-    // 按创建时间降序排列
-    return [...mediaItems].sort((a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    )
+    return db.prepare('SELECT * FROM media_items ORDER BY created_at DESC').all() as MediaItemRecord[]
 }
 
 /**
- * 获取媒体项总数
+ * 批量插入媒体项
+ */
+export function insertMediaItems(files: ScannedFile[]): number {
+    if (files.length === 0) return 0
+
+    const insert = db.prepare(`
+        INSERT OR IGNORE INTO media_items (
+            path, name, size, type, ext, birth_time, modified_time
+        ) VALUES (
+            @path, @name, @size, @type, @ext, @birthTime, @modifiedTime
+        )
+    `)
+
+    let insertedCount = 0
+    const transaction = db.transaction((items: ScannedFile[]) => {
+        for (const item of items) {
+            try {
+                const result = insert.run({
+                    ...item,
+                    birthTime: item.birthTime instanceof Date ? item.birthTime.toISOString() : item.birthTime,
+                    modifiedTime: item.modifiedTime instanceof Date ? item.modifiedTime.toISOString() : item.modifiedTime
+                })
+                if (result.changes > 0) insertedCount++
+            } catch (err) {
+                console.error('插入数据库失败:', item.path, err)
+            }
+        }
+    })
+
+    transaction(files)
+    return insertedCount
+}
+
+/**
+ * 更新媒体项的缩略图路径
+ */
+export function updateThumbnailPath(id: number, thumbnailPath: string): void {
+    db.prepare('UPDATE media_items SET thumbnail_path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(thumbnailPath, id)
+}
+
+/**
+ * 获取待处理缩略图的任务（没有缩略图的项）
+ */
+export function getPendingThumbnailItems(): { id: number; path: string; type: 'image' | 'video' }[] {
+    return db.prepare('SELECT id, path, type FROM media_items WHERE thumbnail_path IS NULL')
+        .all() as { id: number; path: string; type: 'image' | 'video' }[]
+}
+
+/**
+ * 获取媒体统计
+ */
+export function getMediaStats() {
+    const images = db.prepare("SELECT COUNT(*) as count FROM media_items WHERE type = 'image'").get() as any
+    const videos = db.prepare("SELECT COUNT(*) as count FROM media_items WHERE type = 'video'").get() as any
+    return {
+        images: images.count,
+        videos: videos.count,
+        total: images.count + videos.count
+    }
+}
+
+/**
+ * 获取媒体总数
  */
 export function getMediaCount(): number {
-    return mediaItems.length
+    const result = db.prepare('SELECT COUNT(*) as count FROM media_items').get() as any
+    return result.count
 }
 
 /**
- * 获取按类型分组的统计
- */
-export function getMediaStats(): { images: number; videos: number; total: number } {
-    const images = mediaItems.filter(item => item.type === 'image').length
-    const videos = mediaItems.filter(item => item.type === 'video').length
-    return { images, videos, total: images + videos }
-}
-
-/**
- * 切换收藏状态
+ * 切换收藏
  */
 export function toggleFavorite(id: number): boolean {
-    const item = mediaItems.find(item => item.id === id)
-    if (!item) return false
-
-    item.is_favorite = item.is_favorite === 0 ? 1 : 0
-    item.updated_at = new Date().toISOString()
-
-    setImmediate(() => saveToFile())
+    db.prepare('UPDATE media_items SET is_favorite = 1 - is_favorite, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(id)
     return true
 }
 
 /**
- * 删除媒体项
+ * 更新标签
+ */
+export function updateTags(id: number, tags: string[]): void {
+    const tagsJson = JSON.stringify(tags)
+    db.prepare('UPDATE media_items SET tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(tagsJson, id)
+}
+
+/**
+ * 更新备注
+ */
+export function updateNotes(id: number, notes: string): void {
+    db.prepare('UPDATE media_items SET notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(notes, id)
+}
+
+/**
+ * 获取所有唯一标签（用于自动补全）
+ */
+export function getAllTags(): string[] {
+    const rows = db.prepare('SELECT tags FROM media_items WHERE tags IS NOT NULL AND tags != \'[]\'').all() as { tags: string }[]
+    const tagSet = new Set<string>()
+
+    for (const row of rows) {
+        try {
+            const tags = JSON.parse(row.tags) as string[]
+            tags.forEach(tag => tagSet.add(tag))
+        } catch {
+            // 忽略解析错误
+        }
+    }
+
+    return Array.from(tagSet).sort()
+}
+
+/**
+ * 获取单个媒体项
+ */
+export function getMediaItem(id: number): MediaItemRecord | null {
+    return db.prepare('SELECT * FROM media_items WHERE id = ?').get(id) as MediaItemRecord | null
+}
+
+/**
+ * 更新 AI 标签
+ */
+export function updateAiTags(id: number, aiTags: string[]): void {
+    const tagsJson = JSON.stringify(aiTags)
+    db.prepare('UPDATE media_items SET ai_tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(tagsJson, id)
+}
+
+/**
+ * 更新 Embedding 向量
+ */
+export function updateEmbedding(id: number, embedding: number[]): void {
+    // 将 float32 数组转换为 Buffer
+    const buffer = Buffer.from(new Float32Array(embedding).buffer)
+    db.prepare('UPDATE media_items SET embedding = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(buffer, id)
+}
+
+/**
+ * 获取待 AI 处理的媒体项（只返回图片，没有 embedding 的）
+ */
+export function getPendingAiItems(limit: number = 10): MediaItemRecord[] {
+    return db.prepare(`
+        SELECT * FROM media_items 
+        WHERE type = 'image' 
+          AND thumbnail_path IS NOT NULL 
+          AND embedding IS NULL 
+        ORDER BY created_at DESC 
+        LIMIT ?
+    `).all(limit) as MediaItemRecord[]
+}
+
+/**
+ * 获取所有有 embedding 的媒体项（用于语义搜索）
+ */
+export function getAllEmbeddings(): { id: number; path: string; embedding: Buffer }[] {
+    return db.prepare(`
+        SELECT id, path, embedding FROM media_items 
+        WHERE embedding IS NOT NULL
+    `).all() as { id: number; path: string; embedding: Buffer }[]
+}
+
+/**
+ * 删除单个媒体项
  */
 export function deleteMediaItem(id: number): boolean {
-    const index = mediaItems.findIndex(item => item.id === id)
-    if (index === -1) return false
+    const result = db.prepare('DELETE FROM media_items WHERE id = ?').run(id)
+    return result.changes > 0
+}
 
-    mediaItems.splice(index, 1)
-    setImmediate(() => saveToFile())
-    return true
+/**
+ * 批量删除媒体项
+ */
+export function deleteMediaItems(ids: number[]): number {
+    if (ids.length === 0) return 0
+
+    const placeholders = ids.map(() => '?').join(',')
+    const result = db.prepare(`DELETE FROM media_items WHERE id IN (${placeholders})`).run(...ids)
+    return result.changes
+}
+
+/**
+ * 批量更新标签（添加标签到多个项目）
+ */
+export function batchAddTags(ids: number[], tagsToAdd: string[]): number {
+    if (ids.length === 0 || tagsToAdd.length === 0) return 0
+
+    let updated = 0
+    const selectStmt = db.prepare('SELECT id, tags FROM media_items WHERE id = ?')
+    const updateStmt = db.prepare('UPDATE media_items SET tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+
+    const transaction = db.transaction(() => {
+        for (const id of ids) {
+            const row = selectStmt.get(id) as { id: number; tags: string } | undefined
+            if (row) {
+                const existingTags: string[] = JSON.parse(row.tags || '[]')
+                const newTags = Array.from(new Set([...existingTags, ...tagsToAdd]))
+                updateStmt.run(JSON.stringify(newTags), id)
+                updated++
+            }
+        }
+    })
+
+    transaction()
+    return updated
+}
+
+/**
+ * 关闭数据库
+ */
+export function closeDatabase(): void {
+    if (db) db.close()
 }

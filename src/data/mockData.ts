@@ -15,12 +15,16 @@ export const mockMediaItems: MediaItem[] = [
         thumbnailPath: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop',
         fileName: 'landscape_01.jpg',
         fileSize: 2457600,
+        ext: 'jpg',
         width: 1920,
         height: 1080,
         duration: null,
+        birthTime: '2026-02-05T10:30:00Z',
+        modifiedTime: '2026-02-05T10:30:00Z',
         createdAt: '2026-02-05T10:30:00Z',
         updatedAt: '2026-02-05T10:30:00Z',
-        isFavorite: true
+        isFavorite: true,
+        aiTags: []
     },
     {
         id: 2,
@@ -31,12 +35,16 @@ export const mockMediaItems: MediaItem[] = [
         thumbnailPath: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=400&h=300&fit=crop',
         fileName: 'city_night.jpg',
         fileSize: 3145728,
+        ext: 'jpg',
         width: 1920,
         height: 1280,
         duration: null,
+        birthTime: '2026-02-04T08:15:00Z',
+        modifiedTime: '2026-02-04T08:15:00Z',
         createdAt: '2026-02-04T08:15:00Z',
         updatedAt: '2026-02-04T08:15:00Z',
-        isFavorite: false
+        isFavorite: false,
+        aiTags: []
     },
     {
         id: 3,
@@ -47,12 +55,16 @@ export const mockMediaItems: MediaItem[] = [
         thumbnailPath: 'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=400&h=300&fit=crop',
         fileName: 'ocean_waves.mp4',
         fileSize: 52428800,
+        ext: 'mp4',
         width: 1920,
         height: 1080,
         duration: 120,
+        birthTime: '2026-02-03T14:20:00Z',
+        modifiedTime: '2026-02-03T14:20:00Z',
         createdAt: '2026-02-03T14:20:00Z',
         updatedAt: '2026-02-03T14:20:00Z',
-        isFavorite: true
+        isFavorite: true,
+        aiTags: []
     },
     {
         id: 4,
@@ -63,12 +75,16 @@ export const mockMediaItems: MediaItem[] = [
         thumbnailPath: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=300&fit=crop',
         fileName: 'portrait_01.jpg',
         fileSize: 1835008,
+        ext: 'jpg',
         width: 1200,
         height: 1600,
         duration: null,
+        birthTime: '2026-02-02T16:45:00Z',
+        modifiedTime: '2026-02-02T16:45:00Z',
         createdAt: '2026-02-02T16:45:00Z',
         updatedAt: '2026-02-02T16:45:00Z',
-        isFavorite: false
+        isFavorite: false,
+        aiTags: []
     },
     {
         id: 5,
@@ -79,12 +95,16 @@ export const mockMediaItems: MediaItem[] = [
         thumbnailPath: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&h=300&fit=crop',
         fileName: 'tech_abstract.jpg',
         fileSize: 2097152,
+        ext: 'jpg',
         width: 1920,
         height: 1080,
         duration: null,
+        birthTime: '2026-02-01T11:00:00Z',
+        modifiedTime: '2026-02-01T11:00:00Z',
         createdAt: '2026-02-01T11:00:00Z',
         updatedAt: '2026-02-01T11:00:00Z',
-        isFavorite: true
+        isFavorite: true,
+        aiTags: []
     },
     {
         id: 6,
@@ -95,12 +115,16 @@ export const mockMediaItems: MediaItem[] = [
         thumbnailPath: 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400&h=300&fit=crop',
         fileName: 'drone_footage.mp4',
         fileSize: 157286400,
+        ext: 'mp4',
         width: 3840,
         height: 2160,
         duration: 180,
+        birthTime: '2026-01-30T09:30:00Z',
+        modifiedTime: '2026-01-30T09:30:00Z',
         createdAt: '2026-01-30T09:30:00Z',
         updatedAt: '2026-01-30T09:30:00Z',
-        isFavorite: false
+        isFavorite: false,
+        aiTags: []
     },
     {
         id: 7,
@@ -111,12 +135,16 @@ export const mockMediaItems: MediaItem[] = [
         thumbnailPath: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=400&h=300&fit=crop',
         fileName: 'food_photo.jpg',
         fileSize: 1572864,
+        ext: 'jpg',
         width: 1600,
         height: 1200,
         duration: null,
+        birthTime: '2026-01-28T13:15:00Z',
+        modifiedTime: '2026-01-28T13:15:00Z',
         createdAt: '2026-01-28T13:15:00Z',
         updatedAt: '2026-01-28T13:15:00Z',
-        isFavorite: false
+        isFavorite: false,
+        aiTags: []
     },
     {
         id: 8,
@@ -127,12 +155,16 @@ export const mockMediaItems: MediaItem[] = [
         thumbnailPath: 'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?w=400&h=300&fit=crop',
         fileName: 'aurora.jpg',
         fileSize: 2621440,
+        ext: 'jpg',
         width: 1920,
         height: 1280,
         duration: null,
+        birthTime: '2026-01-25T22:00:00Z',
+        modifiedTime: '2026-01-25T22:00:00Z',
         createdAt: '2026-01-25T22:00:00Z',
         updatedAt: '2026-01-25T22:00:00Z',
-        isFavorite: true
+        isFavorite: true,
+        aiTags: []
     },
     {
         id: 9,
@@ -143,12 +175,16 @@ export const mockMediaItems: MediaItem[] = [
         thumbnailPath: 'https://images.unsplash.com/photo-1474181487882-5abf3f0ba6c2?w=400&h=300&fit=crop',
         fileName: 'timelapse.mp4',
         fileSize: 104857600,
+        ext: 'mp4',
         width: 1920,
         height: 1080,
         duration: 60,
+        birthTime: '2026-01-22T19:45:00Z',
+        modifiedTime: '2026-01-22T19:45:00Z',
         createdAt: '2026-01-22T19:45:00Z',
         updatedAt: '2026-01-22T19:45:00Z',
-        isFavorite: false
+        isFavorite: false,
+        aiTags: []
     },
     {
         id: 10,
@@ -159,12 +195,16 @@ export const mockMediaItems: MediaItem[] = [
         thumbnailPath: 'https://images.unsplash.com/photo-1593062096033-9a26b09da705?w=400&h=300&fit=crop',
         fileName: 'minimal_desk.jpg',
         fileSize: 1310720,
+        ext: 'jpg',
         width: 1600,
         height: 1067,
         duration: null,
+        birthTime: '2026-01-20T10:00:00Z',
+        modifiedTime: '2026-01-20T10:00:00Z',
         createdAt: '2026-01-20T10:00:00Z',
         updatedAt: '2026-01-20T10:00:00Z',
-        isFavorite: false
+        isFavorite: false,
+        aiTags: []
     },
     {
         id: 11,
@@ -175,12 +215,16 @@ export const mockMediaItems: MediaItem[] = [
         thumbnailPath: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=400&h=300&fit=crop',
         fileName: 'forest_path.jpg',
         fileSize: 2883584,
+        ext: 'jpg',
         width: 1920,
         height: 1280,
         duration: null,
+        birthTime: '2026-01-18T07:30:00Z',
+        modifiedTime: '2026-01-18T07:30:00Z',
         createdAt: '2026-01-18T07:30:00Z',
         updatedAt: '2026-01-18T07:30:00Z',
-        isFavorite: true
+        isFavorite: true,
+        aiTags: []
     },
     {
         id: 12,
@@ -191,12 +235,16 @@ export const mockMediaItems: MediaItem[] = [
         thumbnailPath: 'https://images.unsplash.com/photo-1545486332-9e0999c535b2?w=400&h=300&fit=crop',
         fileName: 'neon_street.jpg',
         fileSize: 2097152,
+        ext: 'jpg',
         width: 1920,
         height: 1080,
         duration: null,
+        birthTime: '2026-01-15T21:15:00Z',
+        modifiedTime: '2026-01-15T21:15:00Z',
         createdAt: '2026-01-15T21:15:00Z',
         updatedAt: '2026-01-15T21:15:00Z',
-        isFavorite: true
+        isFavorite: true,
+        aiTags: []
     }
 ]
 

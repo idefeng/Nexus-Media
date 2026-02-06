@@ -1,15 +1,22 @@
 /**
  * 媒体卡片组件
- * 展示单个媒体资源的缩略图和信息
+ * 展示单个媒体资源的缩略图和信息，支持懒加载、右键菜单和多选
  */
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Heart, Play, Image as ImageIcon, Video as VideoIcon, MoreHorizontal, FileImage, FileVideo } from 'lucide-react'
+import { Heart, Play, Image as ImageIcon, Video as VideoIcon, AlertCircle, Check } from 'lucide-react'
 import type { MediaItem } from '../../types'
 
 interface MediaCardProps {
     item: MediaItem
     index: number
     onFavoriteToggle: (id: number) => void
+    onClick?: () => void
+    onContextMenu?: (e: React.MouseEvent, item: MediaItem) => void
+    // 多选相关
+    isSelected?: boolean
+    isSelectionMode?: boolean
+    onSelect?: (id: number, e: React.MouseEvent) => void
 }
 
 // 格式化文件大小
@@ -33,7 +40,7 @@ function formatDuration(seconds: number): string {
 }
 
 // 获取文件类型图标和颜色
-function getFileTypeStyle(type: 'image' | 'video', ext: string) {
+function getFileTypeStyle(type: 'image' | 'video') {
     if (type === 'video') {
         return {
             icon: VideoIcon,
@@ -51,45 +58,112 @@ function getFileTypeStyle(type: 'image' | 'video', ext: string) {
     }
 }
 
-export function MediaCard({ item, index, onFavoriteToggle }: MediaCardProps) {
-    const fileStyle = getFileTypeStyle(item.type, item.ext)
+export function MediaCard({
+    item,
+    index,
+    onFavoriteToggle,
+    onClick,
+    onContextMenu,
+    isSelected = false,
+    isSelectionMode = false,
+    onSelect
+}: MediaCardProps) {
+    const [isImageLoaded, setIsImageLoaded] = useState(false)
+    const [hasError, setHasError] = useState(false)
+    const [isHovered, setIsHovered] = useState(false)
+    const fileStyle = getFileTypeStyle(item.type)
     const FileTypeIcon = fileStyle.icon
+
+    const handleClick = (e: React.MouseEvent) => {
+        // 如果按住 Ctrl 或 Shift，或在选择模式下，触发选择
+        if ((e.ctrlKey || e.shiftKey || isSelectionMode) && onSelect) {
+            e.preventDefault()
+            onSelect(item.id, e)
+        } else {
+            onClick?.()
+        }
+    }
+
+    const handleCheckboxClick = (e: React.MouseEvent) => {
+        e.stopPropagation()
+        onSelect?.(item.id, e)
+    }
+
+    const handleContextMenu = (e: React.MouseEvent) => {
+        e.preventDefault()
+        onContextMenu?.(e, item)
+    }
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
             transition={{
-                duration: 0.4,
-                delay: Math.min(index * 0.03, 0.5), // 限制最大延迟
-                ease: [0.23, 1, 0.32, 1]
+                duration: 0.3,
+                delay: Math.min((index % 20) * 0.02, 0.4),
+                ease: "easeOut"
             }}
-            whileHover={{ scale: 1.02 }}
-            className="media-card group"
+            whileHover={{ y: -4, transition: { duration: 0.2 } }}
+            className={`media-card group relative cursor-pointer ${isSelected ? 'ring-2 ring-neon-cyan ring-offset-2 ring-offset-nexus-bg' : ''
+                }`}
+            onClick={handleClick}
+            onContextMenu={handleContextMenu}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
         >
+            {/* 选择复选框 */}
+            {(isHovered || isSelectionMode || isSelected) && onSelect && (
+                <motion.button
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    onClick={handleCheckboxClick}
+                    className={`absolute top-2 left-2 z-10 w-6 h-6 rounded-md flex items-center justify-center transition-all ${isSelected
+                            ? 'bg-neon-cyan text-black'
+                            : 'bg-black/60 backdrop-blur-sm border border-white/30 hover:bg-white/20'
+                        }`}
+                >
+                    {isSelected && <Check className="w-4 h-4" />}
+                </motion.button>
+            )}
+
             {/* 缩略图区域 */}
-            <div className="relative aspect-[4/3] overflow-hidden">
+            <div className="relative aspect-[4/3] overflow-hidden bg-nexus-bg-secondary">
+                {/* 骨架屏占位 */}
+                {item.thumbnailPath && !isImageLoaded && !hasError && (
+                    <div className="absolute inset-0 bg-nexus-bg-secondary animate-pulse flex items-center justify-center">
+                        <FileTypeIcon className="w-8 h-8 text-nexus-text-muted/30" />
+                    </div>
+                )}
+
                 {/* 缩略图或占位符 */}
-                {item.thumbnailPath ? (
+                {item.thumbnailPath && !hasError ? (
                     <img
                         src={item.thumbnailPath}
                         alt={item.fileName}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        loading="lazy"
+                        onLoad={() => setIsImageLoaded(true)}
+                        onError={() => setHasError(true)}
+                        className={`w-full h-full object-cover transition-all duration-500 ${isImageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
+                            } group-hover:scale-110`}
                     />
                 ) : (
                     <div className={`w-full h-full ${fileStyle.bgClass} flex flex-col items-center justify-center border ${fileStyle.borderClass}`}>
-                        <FileTypeIcon className={`w-10 h-10 ${fileStyle.iconClass} mb-2`} />
-                        <span className={`text-xs font-medium ${fileStyle.iconClass} uppercase tracking-wider`}>
-                            .{item.ext || item.type}
+                        {hasError ? (
+                            <AlertCircle className="w-10 h-10 text-neon-pink mb-2" />
+                        ) : (
+                            <FileTypeIcon className={`w-10 h-10 ${fileStyle.iconClass} mb-2`} />
+                        )}
+                        <span className={`text-[10px] font-bold ${hasError ? 'text-neon-pink' : fileStyle.iconClass} uppercase tracking-tighter`}>
+                            {hasError ? '加载失败' : `.${item.ext || item.type}`}
                         </span>
                     </div>
                 )}
 
                 {/* 渐变遮罩 */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
                 {/* 类型标识 */}
-                <div className="absolute top-2 left-2">
+                <div className="absolute top-2 right-10">
                     {item.type === 'video' ? (
                         <div className="flex items-center gap-1 px-2 py-1 rounded bg-black/60 backdrop-blur-sm">
                             <Play className="w-3 h-3 text-neon-green fill-neon-green" />
@@ -123,23 +197,23 @@ export function MediaCard({ item, index, onFavoriteToggle }: MediaCardProps) {
                         }`}
                 >
                     <Heart
-                        className={`w-4 h-4 transition-colors ${item.isFavorite
-                            ? 'text-neon-pink fill-neon-pink'
-                            : 'text-white'
+                        className={`w-4 h-4 transition-colors ${item.isFavorite ? 'text-neon-pink fill-neon-pink' : 'text-white'
                             }`}
                     />
                 </motion.button>
 
-                {/* 更多操作按钮 */}
-                <button className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <MoreHorizontal className="w-4 h-4 text-white" />
-                </button>
+                {/* 相似度评分 (语义搜索时显示) */}
+                {item.similarityScore !== undefined && item.similarityScore > 0 && (
+                    <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-neon-green/20 backdrop-blur-sm border border-neon-green/30">
+                        <span className="text-xs text-neon-green font-medium">
+                            {Math.round(item.similarityScore * 100)}% 匹配
+                        </span>
+                    </div>
+                )}
 
                 {/* 悬浮信息 */}
                 <div className="absolute bottom-2 left-2 right-12 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <p className="text-white text-sm font-medium truncate">
-                        {item.fileName}
-                    </p>
+                    <p className="text-white text-sm font-medium truncate">{item.fileName}</p>
                     <p className="text-white/70 text-xs">
                         {formatFileSize(item.fileSize)}
                         {item.width && item.height && ` • ${item.width}×${item.height}`}
@@ -187,6 +261,11 @@ export function MediaCard({ item, index, onFavoriteToggle }: MediaCardProps) {
                 <div className="absolute inset-0 rounded-xl border border-neon-cyan/30" />
                 <div className="absolute inset-0 rounded-xl shadow-neon-cyan" />
             </div>
+
+            {/* 选中状态遮罩 */}
+            {isSelected && (
+                <div className="absolute inset-0 rounded-xl bg-neon-cyan/10 pointer-events-none" />
+            )}
         </motion.div>
     )
 }

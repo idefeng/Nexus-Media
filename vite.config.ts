@@ -12,7 +12,10 @@ export default defineConfig({
                 entry: 'electron/main.ts',
                 vite: {
                     build: {
-                        outDir: 'dist-electron'
+                        outDir: 'dist-electron',
+                        rollupOptions: {
+                            external: ['sharp', 'fluent-ffmpeg', 'better-sqlite3', 'ffmpeg-static']
+                        }
                     }
                 }
             },
