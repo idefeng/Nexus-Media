@@ -1,8 +1,29 @@
 "use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
 const electron = require("electron");
 const path = require("path");
 const url = require("url");
-const Database = require("better-sqlite3");
 const fs = require("fs");
 const sharp = require("sharp");
 const ffmpeg = require("fluent-ffmpeg");
@@ -27,120 +48,195 @@ function _interopNamespaceDefault(e) {
 }
 const path__namespace = /* @__PURE__ */ _interopNamespaceDefault(path);
 const fs__namespace = /* @__PURE__ */ _interopNamespaceDefault(fs);
-let db;
+let db = null;
+let dbPath = "";
+let initPromise = null;
+function saveDatabase() {
+  if (db && dbPath) {
+    try {
+      const data = db.export();
+      const buffer = Buffer.from(data);
+      fs.writeFileSync(dbPath, buffer);
+    } catch (err) {
+      console.error("保存数据库失败:", err);
+    }
+  }
+}
+function getWasmPath() {
+  const possiblePaths = [
+    // pnpm 安装路径
+    path.join(__dirname, "../node_modules/.pnpm/sql.js@1.13.0/node_modules/sql.js/dist/sql-wasm.wasm"),
+    path.join(__dirname, "../node_modules/sql.js/dist/sql-wasm.wasm"),
+    // require.resolve 方式
+    path.join(path.dirname(require.resolve("sql.js/package.json")), "dist", "sql-wasm.wasm")
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      console.log("找到 WASM 文件:", p);
+      return p;
+    }
+  }
+  const defaultPath = path.join(__dirname, "../node_modules/sql.js/dist/sql-wasm.wasm");
+  console.log("使用默认 WASM 路径:", defaultPath);
+  return defaultPath;
+}
 async function initDatabase() {
-  const userDataPath = electron.app.getPath("userData");
-  const dbPath = path.join(userDataPath, "nexus_media.db");
-  if (!fs.existsSync(userDataPath)) {
-    fs.mkdirSync(userDataPath, { recursive: true });
-  }
-  db = new Database(dbPath);
-  const schema = `
-        CREATE TABLE IF NOT EXISTS media_items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            path TEXT NOT NULL UNIQUE,
-            name TEXT NOT NULL,
-            size INTEGER,
-            type TEXT CHECK(type IN ('image', 'video')) NOT NULL,
-            ext TEXT,
-            birth_time DATETIME,
-            modified_time DATETIME,
-            tags TEXT DEFAULT '[]',
-            notes TEXT DEFAULT '',
-            thumbnail_path TEXT,
-            width INTEGER,
-            height INTEGER,
-            duration INTEGER,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            is_favorite INTEGER DEFAULT 0,
-            ai_tags TEXT DEFAULT NULL,
-            embedding BLOB DEFAULT NULL
-        );
+  if (initPromise) return initPromise;
+  initPromise = (async () => {
+    try {
+      const initSqlJs = require("sql.js");
+      const wasmPath = getWasmPath();
+      const wasmBinary = fs.readFileSync(wasmPath);
+      const SQL = await initSqlJs({
+        wasmBinary
+      });
+      const userDataPath = electron.app.getPath("userData");
+      dbPath = path.join(userDataPath, "nexus_media.db");
+      if (!fs.existsSync(userDataPath)) {
+        fs.mkdirSync(userDataPath, { recursive: true });
+      }
+      if (fs.existsSync(dbPath)) {
+        const fileBuffer = fs.readFileSync(dbPath);
+        db = new SQL.Database(fileBuffer);
+        console.log("sql.js 数据库已加载:", dbPath);
+      } else {
+        db = new SQL.Database();
+        console.log("sql.js 数据库已创建:", dbPath);
+      }
+      const schema = `
+                CREATE TABLE IF NOT EXISTS media_items (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    path TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
+                    size INTEGER,
+                    type TEXT CHECK(type IN ('image', 'video')) NOT NULL,
+                    ext TEXT,
+                    birth_time DATETIME,
+                    modified_time DATETIME,
+                    tags TEXT DEFAULT '[]',
+                    notes TEXT DEFAULT '',
+                    thumbnail_path TEXT,
+                    width INTEGER,
+                    height INTEGER,
+                    duration INTEGER,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    is_favorite INTEGER DEFAULT 0,
+                    ai_tags TEXT DEFAULT NULL,
+                    embedding BLOB DEFAULT NULL
+                );
 
-        CREATE INDEX IF NOT EXISTS idx_media_type ON media_items(type);
-        CREATE INDEX IF NOT EXISTS idx_media_favorite ON media_items(is_favorite);
-        CREATE INDEX IF NOT EXISTS idx_media_created ON media_items(created_at);
-    `;
-  db.exec(schema);
-  try {
-    const columns = db.prepare("PRAGMA table_info(media_items)").all();
-    const columnNames = columns.map((c) => c.name);
-    if (!columnNames.includes("ai_tags")) {
-      db.exec("ALTER TABLE media_items ADD COLUMN ai_tags TEXT DEFAULT NULL");
-      console.log("数据库迁移：添加 ai_tags 列");
+                CREATE INDEX IF NOT EXISTS idx_media_type ON media_items(type);
+                CREATE INDEX IF NOT EXISTS idx_media_favorite ON media_items(is_favorite);
+                CREATE INDEX IF NOT EXISTS idx_media_created ON media_items(created_at);
+            `;
+      db.run(schema);
+      saveDatabase();
+      console.log("sql.js 数据库初始化完成");
+    } catch (err) {
+      console.error("数据库初始化失败:", err);
+      throw err;
     }
-    if (!columnNames.includes("embedding")) {
-      db.exec("ALTER TABLE media_items ADD COLUMN embedding BLOB DEFAULT NULL");
-      console.log("数据库迁移：添加 embedding 列");
-    }
-  } catch (err) {
-    console.error("数据库迁移失败:", err);
+  })();
+  return initPromise;
+}
+function queryAll(sql, params = []) {
+  if (!db) {
+    console.error("数据库未初始化，无法执行查询");
+    return [];
   }
-  console.log("Better-SQLite3 数据库已连接:", dbPath);
+  try {
+    const stmt = db.prepare(sql);
+    stmt.bind(params);
+    const results = [];
+    while (stmt.step()) {
+      const row = stmt.getAsObject();
+      results.push(row);
+    }
+    stmt.free();
+    return results;
+  } catch (err) {
+    console.error("查询失败:", sql, err);
+    return [];
+  }
+}
+function queryOne(sql, params = []) {
+  const results = queryAll(sql, params);
+  return results.length > 0 ? results[0] : null;
+}
+function execute(sql, params = []) {
+  if (!db) {
+    console.error("数据库未初始化，无法执行更新");
+    return { changes: 0 };
+  }
+  try {
+    db.run(sql, params);
+    const changes = db.getRowsModified();
+    saveDatabase();
+    return { changes };
+  } catch (err) {
+    console.error("执行失败:", sql, err);
+    return { changes: 0 };
+  }
 }
 function getAllMediaItems() {
-  return db.prepare("SELECT * FROM media_items ORDER BY created_at DESC").all();
+  return queryAll("SELECT * FROM media_items ORDER BY created_at DESC");
 }
 function insertMediaItems(files) {
-  if (files.length === 0) return 0;
-  const insert = db.prepare(`
-        INSERT OR IGNORE INTO media_items (
-            path, name, size, type, ext, birth_time, modified_time
-        ) VALUES (
-            @path, @name, @size, @type, @ext, @birthTime, @modifiedTime
-        )
-    `);
+  if (files.length === 0 || !db) return 0;
   let insertedCount = 0;
-  const transaction = db.transaction((items) => {
-    for (const item of items) {
-      try {
-        const result = insert.run({
-          ...item,
-          birthTime: item.birthTime instanceof Date ? item.birthTime.toISOString() : item.birthTime,
-          modifiedTime: item.modifiedTime instanceof Date ? item.modifiedTime.toISOString() : item.modifiedTime
-        });
-        if (result.changes > 0) insertedCount++;
-      } catch (err) {
-        console.error("插入数据库失败:", item.path, err);
-      }
+  for (const item of files) {
+    try {
+      const birthTime = item.birthTime instanceof Date ? item.birthTime.toISOString() : item.birthTime;
+      const modifiedTime = item.modifiedTime instanceof Date ? item.modifiedTime.toISOString() : item.modifiedTime;
+      db.run(`
+                INSERT OR IGNORE INTO media_items (
+                    path, name, size, type, ext, birth_time, modified_time
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            `, [item.path, item.name, item.size, item.type, item.ext, birthTime, modifiedTime]);
+      if (db.getRowsModified() > 0) insertedCount++;
+    } catch (err) {
+      console.error("插入数据库失败:", item.path, err);
     }
-  });
-  transaction(files);
+  }
+  if (insertedCount > 0) saveDatabase();
   return insertedCount;
 }
 function updateThumbnailPath(id, thumbnailPath) {
-  db.prepare("UPDATE media_items SET thumbnail_path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(thumbnailPath, id);
+  execute(
+    "UPDATE media_items SET thumbnail_path = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+    [thumbnailPath, id]
+  );
 }
 function getPendingThumbnailItems() {
-  return db.prepare("SELECT id, path, type FROM media_items WHERE thumbnail_path IS NULL").all();
+  return queryAll("SELECT id, path, type FROM media_items WHERE thumbnail_path IS NULL");
 }
 function getMediaStats() {
-  const images = db.prepare("SELECT COUNT(*) as count FROM media_items WHERE type = 'image'").get();
-  const videos = db.prepare("SELECT COUNT(*) as count FROM media_items WHERE type = 'video'").get();
+  const images = queryOne("SELECT COUNT(*) as count FROM media_items WHERE type = 'image'");
+  const videos = queryOne("SELECT COUNT(*) as count FROM media_items WHERE type = 'video'");
   return {
-    images: images.count,
-    videos: videos.count,
-    total: images.count + videos.count
+    images: (images == null ? void 0 : images.count) || 0,
+    videos: (videos == null ? void 0 : videos.count) || 0,
+    total: ((images == null ? void 0 : images.count) || 0) + ((videos == null ? void 0 : videos.count) || 0)
   };
 }
 function getMediaCount() {
-  const result = db.prepare("SELECT COUNT(*) as count FROM media_items").get();
-  return result.count;
+  const result = queryOne("SELECT COUNT(*) as count FROM media_items");
+  return (result == null ? void 0 : result.count) || 0;
 }
 function toggleFavorite(id) {
-  db.prepare("UPDATE media_items SET is_favorite = 1 - is_favorite, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(id);
+  execute("UPDATE media_items SET is_favorite = 1 - is_favorite, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [id]);
   return true;
 }
 function updateTags(id, tags) {
   const tagsJson = JSON.stringify(tags);
-  db.prepare("UPDATE media_items SET tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(tagsJson, id);
+  execute("UPDATE media_items SET tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [tagsJson, id]);
 }
 function updateNotes(id, notes) {
-  db.prepare("UPDATE media_items SET notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(notes, id);
+  execute("UPDATE media_items SET notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [notes, id]);
 }
 function getAllTags() {
-  const rows = db.prepare("SELECT tags FROM media_items WHERE tags IS NOT NULL AND tags != '[]'").all();
+  const rows = queryAll("SELECT tags FROM media_items WHERE tags IS NOT NULL AND tags != '[]'");
   const tagSet = /* @__PURE__ */ new Set();
   for (const row of rows) {
     try {
@@ -152,63 +248,66 @@ function getAllTags() {
   return Array.from(tagSet).sort();
 }
 function getMediaItem(id) {
-  return db.prepare("SELECT * FROM media_items WHERE id = ?").get(id);
+  return queryOne("SELECT * FROM media_items WHERE id = ?", [id]);
 }
 function updateAiTags(id, aiTags) {
   const tagsJson = JSON.stringify(aiTags);
-  db.prepare("UPDATE media_items SET ai_tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(tagsJson, id);
+  execute("UPDATE media_items SET ai_tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [tagsJson, id]);
 }
 function updateEmbedding(id, embedding) {
-  const buffer = Buffer.from(new Float32Array(embedding).buffer);
-  db.prepare("UPDATE media_items SET embedding = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(buffer, id);
+  const buffer = new Uint8Array(new Float32Array(embedding).buffer);
+  execute("UPDATE media_items SET embedding = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [buffer, id]);
 }
 function getPendingAiItems(limit = 10) {
-  return db.prepare(`
+  return queryAll(`
         SELECT * FROM media_items 
         WHERE type = 'image' 
           AND thumbnail_path IS NOT NULL 
           AND embedding IS NULL 
         ORDER BY created_at DESC 
         LIMIT ?
-    `).all(limit);
+    `, [limit]);
 }
 function getAllEmbeddings() {
-  return db.prepare(`
+  return queryAll(`
         SELECT id, path, embedding FROM media_items 
         WHERE embedding IS NOT NULL
-    `).all();
+    `);
 }
 function deleteMediaItem(id) {
-  const result = db.prepare("DELETE FROM media_items WHERE id = ?").run(id);
+  const result = execute("DELETE FROM media_items WHERE id = ?", [id]);
   return result.changes > 0;
 }
 function deleteMediaItems(ids) {
   if (ids.length === 0) return 0;
   const placeholders = ids.map(() => "?").join(",");
-  const result = db.prepare(`DELETE FROM media_items WHERE id IN (${placeholders})`).run(...ids);
+  const result = execute(`DELETE FROM media_items WHERE id IN (${placeholders})`, ids);
   return result.changes;
 }
 function batchAddTags(ids, tagsToAdd) {
   if (ids.length === 0 || tagsToAdd.length === 0) return 0;
   let updated = 0;
-  const selectStmt = db.prepare("SELECT id, tags FROM media_items WHERE id = ?");
-  const updateStmt = db.prepare("UPDATE media_items SET tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
-  const transaction = db.transaction(() => {
-    for (const id of ids) {
-      const row = selectStmt.get(id);
-      if (row) {
-        const existingTags = JSON.parse(row.tags || "[]");
-        const newTags = Array.from(/* @__PURE__ */ new Set([...existingTags, ...tagsToAdd]));
-        updateStmt.run(JSON.stringify(newTags), id);
-        updated++;
-      }
+  for (const id of ids) {
+    const row = queryOne("SELECT id, tags FROM media_items WHERE id = ?", [id]);
+    if (row) {
+      const existingTags = JSON.parse(row.tags || "[]");
+      const newTags = Array.from(/* @__PURE__ */ new Set([...existingTags, ...tagsToAdd]));
+      execute(
+        "UPDATE media_items SET tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [JSON.stringify(newTags), id]
+      );
+      updated++;
     }
-  });
-  transaction();
+  }
   return updated;
 }
 function closeDatabase() {
-  if (db) db.close();
+  if (db) {
+    saveDatabase();
+    db.close();
+    db = null;
+  }
+  initPromise = null;
 }
 const IMAGE_EXTENSIONS = /* @__PURE__ */ new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"]);
 const VIDEO_EXTENSIONS = /* @__PURE__ */ new Set([".mp4", ".mkv", ".mov", ".avi", ".wmv"]);

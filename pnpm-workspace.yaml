@@ -1,5 +1,8 @@
 ignoredBuiltDependencies:
   - better-sqlite3
+  - ffmpeg-static
+  - lzma-native
+  - sharp
 
 onlyBuiltDependencies:
   - electron
