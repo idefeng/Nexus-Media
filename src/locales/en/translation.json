@@ -1,5 +1,7 @@
 {
     "sidebar": {
+        "browse": "Browse",
+        "types": "Types",
         "dashboard": "Dashboard",
         "all_media": "All Media",
         "recently_added": "Recently Added",

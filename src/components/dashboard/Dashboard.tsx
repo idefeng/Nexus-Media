@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import { HardDrive, Image, Video, Clock, Star, Zap, Activity, Grid } from 'lucide-react'
 import { MediaItem, ViewType } from '../../types'
 
@@ -16,6 +17,8 @@ interface DashboardProps {
 }
 
 export function Dashboard({ mediaCount, recentItems, onNavigate, onItemClick }: DashboardProps) {
+    const { t } = useTranslation()
+
     // Animation variants
     const container = {
         hidden: { opacity: 0 },
@@ -37,7 +40,7 @@ export function Dashboard({ mediaCount, recentItems, onNavigate, onItemClick }: 
             <div className="max-w-7xl mx-auto">
                 <div className="flex items-center justify-between mb-8">
                     <h2 className="text-3xl font-bold font-display tracking-tight">
-                        Dashboard
+                        {t('sidebar.dashboard')}
                     </h2>
                     <span className="text-nexus-text-muted font-mono text-sm">
                         {new Date().toLocaleDateString()}
@@ -58,9 +61,9 @@ export function Dashboard({ mediaCount, recentItems, onNavigate, onItemClick }: 
                         <div className="absolute top-0 right-0 w-64 h-64 bg-neon-electric/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
                         <div className="relative z-10 h-full flex flex-col justify-between">
                             <div>
-                                <h3 className="text-xl font-bold mb-2 text-nexus-text-primary">Welcome Back</h3>
+                                <h3 className="text-xl font-bold mb-2 text-nexus-text-primary">{t('dashboard.welcome_back')}</h3>
                                 <p className="text-nexus-text-secondary max-w-md text-sm">
-                                    Your personal media vault is ready. You have {mediaCount.recent} new items this week.
+                                    {t('dashboard.your_vault_ready')} {t('dashboard.new_items_this_week', { count: mediaCount.recent })}
                                 </p>
                             </div>
                             <div className="flex gap-3">
@@ -68,13 +71,13 @@ export function Dashboard({ mediaCount, recentItems, onNavigate, onItemClick }: 
                                     onClick={() => onNavigate('all')}
                                     className="px-4 py-2 bg-neon-electric text-white rounded-lg text-sm font-medium hover:bg-neon-electric/90 transition-colors shadow-lg shadow-neon-electric/20"
                                 >
-                                    Browse Library
+                                    {t('dashboard.browse_library')}
                                 </button>
                                 <button
                                     onClick={() => onNavigate('recent')}
                                     className="px-4 py-2 bg-gray-100 text-nexus-text-secondary rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors border border-transparent"
                                 >
-                                    View Recent
+                                    {t('dashboard.view_recent')}
                                 </button>
                             </div>
                         </div>
@@ -83,7 +86,7 @@ export function Dashboard({ mediaCount, recentItems, onNavigate, onItemClick }: 
                     {/* Quick Stats - 1x1 each */}
                     <StatCard
                         variants={item}
-                        title="Total Assets"
+                        title={t('dashboard.total_assets')}
                         value={mediaCount.all}
                         icon={Grid}
                         color="text-neon-cyan"
@@ -92,7 +95,7 @@ export function Dashboard({ mediaCount, recentItems, onNavigate, onItemClick }: 
                     />
                     <StatCard
                         variants={item}
-                        title="Favorites"
+                        title={t('dashboard.favorites_count')}
                         value={mediaCount.favorites}
                         icon={Star}
                         color="text-neon-pink"
@@ -108,10 +111,10 @@ export function Dashboard({ mediaCount, recentItems, onNavigate, onItemClick }: 
                         <div className="flex justify-between items-center mb-4">
                             <div className="flex items-center gap-2">
                                 <Clock className="w-4 h-4 text-neon-electric" />
-                                <h3 className="font-bold text-lg text-nexus-text-primary">Recent Uploads</h3>
+                                <h3 className="font-bold text-lg text-nexus-text-primary">{t('dashboard.recent_uploads')}</h3>
                             </div>
                             <button onClick={() => onNavigate('recent')} className="text-xs text-nexus-text-muted hover:text-nexus-text-primary transition-colors">
-                                View All
+                                {t('dashboard.view_all')}
                             </button>
                         </div>
                         <div className="grid grid-cols-2 gap-3 flex-1 min-h-0">
@@ -156,7 +159,7 @@ export function Dashboard({ mediaCount, recentItems, onNavigate, onItemClick }: 
                     {/* Type Stats - 1x1 */}
                     <StatCard
                         variants={item}
-                        title="Images"
+                        title={t('dashboard.images_count')}
                         value={mediaCount.images}
                         icon={Image}
                         color="text-neon-green"
@@ -165,7 +168,7 @@ export function Dashboard({ mediaCount, recentItems, onNavigate, onItemClick }: 
                     />
                     <StatCard
                         variants={item}
-                        title="Videos"
+                        title={t('dashboard.videos_count')}
                         value={mediaCount.videos}
                         icon={Video}
                         color="text-neon-purple"
@@ -181,10 +184,10 @@ export function Dashboard({ mediaCount, recentItems, onNavigate, onItemClick }: 
                         <div>
                             <div className="flex items-center gap-2 mb-2">
                                 <Zap className="w-4 h-4 text-neon-purple" />
-                                <h3 className="font-bold text-lg text-nexus-text-primary">AI Insights</h3>
+                                <h3 className="font-bold text-lg text-nexus-text-primary">{t('dashboard.ai_insights')}</h3>
                             </div>
                             <p className="text-sm text-nexus-text-secondary max-w-xs">
-                                Optimize your library with smart tagging and duplicate detection.
+                                {t('dashboard.ai_insights_desc')}
                             </p>
                         </div>
                         <button className="h-10 w-10 bg-neon-purple/10 rounded-full flex items-center justify-center group-hover:bg-neon-purple/20 transition-colors">

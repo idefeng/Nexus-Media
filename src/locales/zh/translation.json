@@ -1,5 +1,7 @@
 {
     "sidebar": {
+        "browse": "浏览",
+        "types": "类型",
         "dashboard": "仪表盘",
         "all_media": "所有媒体",
         "recently_added": "最近添加",

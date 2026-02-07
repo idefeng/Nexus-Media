@@ -1,5 +1,7 @@
 {
     "sidebar": {
+        "browse": "閲覧",
+        "types": "種類",
         "dashboard": "ダッシュボード",
         "all_media": "すべてのメディア",
         "recently_added": "最近追加された項目",
