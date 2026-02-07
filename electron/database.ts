@@ -76,7 +76,6 @@ export async function initDatabase(): Promise<void> {
         CREATE INDEX IF NOT EXISTS idx_media_type ON media_items(type);
         CREATE INDEX IF NOT EXISTS idx_media_favorite ON media_items(is_favorite);
         CREATE INDEX IF NOT EXISTS idx_media_created ON media_items(created_at);
-        CREATE INDEX IF NOT EXISTS idx_media_md5 ON media_items(md5_hash);
     `
     db.exec(schema)
 
