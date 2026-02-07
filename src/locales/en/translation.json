@@ -10,7 +10,9 @@
         "videos": "Videos",
         "settings": "Settings",
         "ai_tag_cloud": "AI Tag Cloud",
-        "cleanup": "Cleanup Assistant"
+        "cleanup": "Cleanup Assistant",
+        "studio": "Creative Studio",
+        "people": "People"
     },
     "topbar": {
         "search_placeholder": "Search media, tags, or commands...",
@@ -88,5 +90,13 @@
     },
     "common": {
         "cancel": "Cancel"
+    },
+    "studio": {
+        "title": "AI Creative Studio",
+        "subtitle": "Nexus Creative Studio",
+        "mode_text": "Subject Generation",
+        "mode_image": "Image-to-Image",
+        "generating": "AI is creating...",
+        "success": "Artwork saved"
     }
 }

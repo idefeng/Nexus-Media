@@ -16,3 +16,9 @@ Pillow
 
 # Utilities
 numpy
+scikit-learn
+opencv-python-headless
+
+# Face Recognition
+insightface
+onnxruntime-gpu

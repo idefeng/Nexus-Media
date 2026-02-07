@@ -4,7 +4,7 @@
  */
 import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Image, Video, Inbox, CheckSquare } from 'lucide-react'
+import { Image, Video, Inbox, CheckSquare, Users, Palette } from 'lucide-react'
 import { VirtuosoGrid } from 'react-virtuoso'
 import { MediaCard } from './MediaCard'
 import { ContextMenu, createMediaContextMenuItems } from '../common/ContextMenu'
@@ -29,7 +29,11 @@ const viewTitles: Record<ViewType, { title: string; icon: React.ReactNode }> = {
     all: { title: '所有媒体', icon: <Image className="w-5 h-5" /> },
     recent: { title: '最近添加', icon: <Video className="w-5 h-5" /> },
     favorites: { title: '收藏夹', icon: <Inbox className="w-5 h-5" /> },
-    dashboard: { title: '仪表盘', icon: <Image className="w-5 h-5" /> }
+    dashboard: { title: '仪表盘', icon: <Image className="w-5 h-5" /> },
+    settings: { title: '设置', icon: <Inbox className="w-5 h-5" /> },
+    cleanup: { title: '清理助手', icon: <Inbox className="w-5 h-5" /> },
+    studio: { title: '创意工作室', icon: <Palette className="w-5 h-5" /> },
+    people: { title: '人物与关系', icon: <Users className="w-5 h-5" /> }
 }
 
 export function MediaGrid({

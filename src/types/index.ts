@@ -75,6 +75,9 @@ export interface MediaItemRecord {
     updated_at: string
     ai_tags: string | null
     exif_data: string | null
+    width: number | null
+    height: number | null
+    duration: number | null
 }
 
 /**
@@ -89,7 +92,9 @@ export function recordToMediaItem(record: MediaItemRecord): MediaItem {
     }
 
     if (thumbPath && !thumbPath.startsWith('nexus-media://')) {
-        thumbPath = `nexus-media://local/${thumbPath}`
+        // 修复：确保路径中的反斜杠被正确处理
+        const normalizedPath = thumbPath.replace(/\\/g, '/')
+        thumbPath = `nexus-media://local/${normalizedPath}`
     }
 
     // 解析 EXIF 数据
@@ -116,9 +121,9 @@ export function recordToMediaItem(record: MediaItemRecord): MediaItem {
         fileName: record.name,
         fileSize: record.size,
         ext: record.ext,
-        width: exifData?.width || null,
-        height: exifData?.height || null,
-        duration: null,
+        width: record.width || exifData?.width || null,
+        height: record.height || exifData?.height || null,
+        duration: record.duration || null,
         birthTime: record.birth_time,
         modifiedTime: record.modified_time,
         createdAt: record.created_at,
@@ -150,7 +155,7 @@ export interface TagStat {
 /**
  * 视图类型
  */
-export type ViewType = 'dashboard' | 'all' | 'recent' | 'favorites' | 'settings' | 'cleanup'
+export type ViewType = 'dashboard' | 'all' | 'recent' | 'favorites' | 'settings' | 'cleanup' | 'studio' | 'people'
 
 /**
  * 扫描进度信息

@@ -17,6 +17,10 @@ interface MediaItemRecord {
     created_at: string
     updated_at: string
     ai_tags: string | null
+    exif_data: string | null
+    width: number | null
+    height: number | null
+    duration: number | null
 }
 
 // 扫描进度信息
@@ -100,6 +104,21 @@ interface Window {
             delete: (ids: number[]) => Promise<{ success: boolean; deleted?: number; error?: string }>
             addTags: (ids: number[], tags: string[]) => Promise<{ success: boolean; updated?: number; error?: string }>
             deleteOne: (id: number) => Promise<{ success: boolean; error?: string }>
+        }
+        cleanup: {
+            analyze: () => Promise<{ success: boolean; data: any; error?: string }>
+            getStats: () => Promise<{ success: boolean; data: any; error?: string }>
+            trashItems: (ids: number[]) => Promise<{ success: boolean; successCount?: number; error?: string }>
+            calculateFocusScore: (imagePath: string) => Promise<{ success: boolean; data: any; error?: string }>
+        }
+        studio: {
+            generateCollage: (options: any) => Promise<any>
+        }
+        people: {
+            getAll: () => Promise<any[]>
+            updateName: (id: number, name: string) => Promise<{ success: boolean }>
+            getGraph: () => Promise<{ nodes: any[]; links: any[] }>
+            getSharedMedia: (id1: number, id2: number) => Promise<any[]>
         }
     }
 }

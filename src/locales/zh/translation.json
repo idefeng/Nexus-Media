@@ -10,7 +10,9 @@
         "videos": "视频",
         "settings": "设置",
         "ai_tag_cloud": "AI 标签云",
-        "cleanup": "清理助手"
+        "cleanup": "清理助手",
+        "studio": "创意工作室",
+        "people": "人物"
     },
     "topbar": {
         "search_placeholder": "搜索媒体、标签或命令...",
@@ -88,5 +90,13 @@
     },
     "common": {
         "cancel": "取消"
+    },
+    "studio": {
+        "title": "AI 创意工作室",
+        "subtitle": "Nexus Creative Studio",
+        "mode_text": "主题生成",
+        "mode_image": "以图生图",
+        "generating": "AI 正在创作中",
+        "success": "作品已保存"
     }
 }

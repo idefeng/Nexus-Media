@@ -72,13 +72,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
         onProgress: (callback: (progress: ScanProgressInfo) => void) => {
             const handler = (_event: Electron.IpcRendererEvent, progress: ScanProgressInfo) => callback(progress)
             ipcRenderer.on('scan:progress', handler)
-            // 返回清理函数
             return () => ipcRenderer.removeListener('scan:progress', handler)
         },
         onComplete: (callback: (info: ScanCompleteInfo) => void) => {
             const handler = (_event: Electron.IpcRendererEvent, info: ScanCompleteInfo) => callback(info)
             ipcRenderer.on('scan:complete', handler)
-            // 返回清理函数
             return () => ipcRenderer.removeListener('scan:complete', handler)
         }
     },
@@ -97,87 +95,43 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // AI 功能
     ai: {
         getStatus: () => ipcRenderer.invoke('ai:getStatus') as Promise<{ running: boolean; ready: boolean }>,
-        analyze: (imagePath: string) => ipcRenderer.invoke('ai:analyze', imagePath) as Promise<{
-            success: boolean
-            tags?: { name: string; confidence: number }[]
-            embedding?: number[]
-            error?: string
-        }>,
-        semanticSearch: (query: string, limit?: number) => ipcRenderer.invoke('ai:semanticSearch', query, limit || 20) as Promise<{
-            success: boolean
-            results?: { id: number; path: string; similarity: number }[]
-            error?: string
-        }>,
-        adoptTag: (id: number, tag: string) => ipcRenderer.invoke('ai:adoptTag', id, tag) as Promise<{
-            success: boolean
-            tags?: string[]
-            error?: string
-        }>
+        analyze: (imagePath: string) => ipcRenderer.invoke('ai:analyze', imagePath),
+        semanticSearch: (query: string, limit?: number) => ipcRenderer.invoke('ai:semanticSearch', query, limit || 20),
+        adoptTag: (id: number, tag: string) => ipcRenderer.invoke('ai:adoptTag', id, tag)
     },
 
     // Shell 操作
     shell: {
-        showInExplorer: (filePath: string) => ipcRenderer.invoke('shell:showInExplorer', filePath) as Promise<{ success: boolean; error?: string }>,
-        copyPath: (filePath: string) => ipcRenderer.invoke('shell:copyPath', filePath) as Promise<{ success: boolean; error?: string }>
+        showInExplorer: (filePath: string) => ipcRenderer.invoke('shell:showInExplorer', filePath),
+        copyPath: (filePath: string) => ipcRenderer.invoke('shell:copyPath', filePath)
     },
 
     // 批量操作
     batch: {
-        delete: (ids: number[]) => ipcRenderer.invoke('media:batchDelete', ids) as Promise<{ success: boolean; deleted?: number; error?: string }>,
-        addTags: (ids: number[], tags: string[]) => ipcRenderer.invoke('media:batchAddTags', ids, tags) as Promise<{ success: boolean; updated?: number; error?: string }>,
-        deleteOne: (id: number) => ipcRenderer.invoke('media:delete', id) as Promise<{ success: boolean; error?: string }>
+        delete: (ids: number[]) => ipcRenderer.invoke('media:batchDelete', ids),
+        addTags: (ids: number[], tags: string[]) => ipcRenderer.invoke('media:batchAddTags', ids, tags),
+        deleteOne: (id: number) => ipcRenderer.invoke('media:delete', id)
     },
 
     // 清理助手
     cleanup: {
-        analyze: () => ipcRenderer.invoke('cleanup:analyze') as Promise<{
-            success: boolean
-            data?: {
-                stats: {
-                    duplicateGroups: number
-                    duplicateFiles: number
-                    duplicateSize: number
-                    similarGroups: number
-                    similarFiles: number
-                    lowQualityCount: number
-                    totalCount: number
-                    potentialSavings: number
-                }
-                exactDuplicates: { hash: string; count: number; totalSize: number; items: MediaItemRecord[] }[]
-                similarImages: { groupId: number; similarity: number; items: { id: number; path: string; size: number }[] }[]
-                lowQualityItems: MediaItemRecord[]
-            }
-            error?: string
-        }>,
-        getStats: () => ipcRenderer.invoke('cleanup:getStats') as Promise<{
-            success: boolean
-            data?: {
-                duplicateGroups: number
-                duplicateFiles: number
-                duplicateSize: number
-                lowQualityCount: number
-                totalCount: number
-            }
-            error?: string
-        }>,
-        trashItems: (ids: number[]) => ipcRenderer.invoke('cleanup:trashItems', ids) as Promise<{
-            success: boolean
-            successCount?: number
-            failCount?: number
-            errors?: string[]
-            error?: string
-        }>,
-        calculateFocusScore: (imagePath: string) => ipcRenderer.invoke('cleanup:calculateFocusScore', imagePath) as Promise<{
-            success: boolean
-            data?: {
-                focus_score: number
-                is_blurry: boolean
-                brightness: number
-                is_too_dark: boolean
-                is_too_bright: boolean
-            }
-            error?: string
-        }>
+        analyze: () => ipcRenderer.invoke('cleanup:analyze'),
+        getStats: () => ipcRenderer.invoke('cleanup:getStats'),
+        trashItems: (ids: number[]) => ipcRenderer.invoke('cleanup:trashItems', ids),
+        calculateFocusScore: (imagePath: string) => ipcRenderer.invoke('cleanup:calculateFocusScore', imagePath)
+    },
+
+    // 创意工作室
+    studio: {
+        generateCollage: (options: any) => ipcRenderer.invoke('studio:generateCollage', options)
+    },
+
+    // 人物/社交圈层
+    people: {
+        getAll: () => ipcRenderer.invoke('people:getAll'),
+        updateName: (id: number, name: string) => ipcRenderer.invoke('people:updateName', id, name),
+        getGraph: () => ipcRenderer.invoke('people:getGraph'),
+        getSharedMedia: (personId1: number, personId2: number) => ipcRenderer.invoke('people:getSharedMedia', personId1, personId2)
     }
 })
 
@@ -194,18 +148,13 @@ declare global {
                 selectFolder: () => Promise<string[]>
             }
             scan: {
-                folders: (folderPaths: string[]) => Promise<{
-                    success: boolean
-                    totalScanned?: number
-                    stats?: { images: number; videos: number; total: number }
-                    message?: string
-                }>
+                folders: (folderPaths: string[]) => Promise<{ success: boolean; totalScanned?: number; stats?: any; message?: string }>
                 onProgress: (callback: (progress: ScanProgressInfo) => void) => () => void
                 onComplete: (callback: (info: ScanCompleteInfo) => void) => () => void
             }
             media: {
                 getAll: () => Promise<{ success: boolean; items: MediaItemRecord[]; message?: string }>
-                getStats: () => Promise<{ success: boolean; stats: { images: number; videos: number; total: number }; count: number }>
+                getStats: () => Promise<{ success: boolean; stats: any; count: number }>
                 toggleFavorite: (id: number) => Promise<{ success: boolean }>
                 updateTags: (id: number, tags: string[]) => Promise<{ success: boolean }>
                 updateNotes: (id: number, notes: string) => Promise<{ success: boolean }>
@@ -214,81 +163,47 @@ declare global {
             }
             ai: {
                 getStatus: () => Promise<{ running: boolean; ready: boolean }>
-                analyze: (imagePath: string) => Promise<{
-                    success: boolean
-                    tags?: { name: string; confidence: number }[]
-                    embedding?: number[]
-                    error?: string
-                }>
-                semanticSearch: (query: string, limit?: number) => Promise<{
-                    success: boolean
-                    results?: { id: number; path: string; similarity: number }[]
-                    error?: string
-                }>
-                adoptTag: (id: number, tag: string) => Promise<{
-                    success: boolean
-                    tags?: string[]
-                    error?: string
-                }>
+                analyze: (imagePath: string) => Promise<any>
+                semanticSearch: (query: string, limit?: number) => Promise<any>
+                adoptTag: (id: number, tag: string) => Promise<any>
             }
             shell: {
-                showInExplorer: (filePath: string) => Promise<{ success: boolean; error?: string }>
-                copyPath: (filePath: string) => Promise<{ success: boolean; error?: string }>
+                showInExplorer: (filePath: string) => Promise<any>
+                copyPath: (filePath: string) => Promise<any>
             }
             batch: {
-                delete: (ids: number[]) => Promise<{ success: boolean; deleted?: number; error?: string }>
-                addTags: (ids: number[], tags: string[]) => Promise<{ success: boolean; updated?: number; error?: string }>
-                deleteOne: (id: number) => Promise<{ success: boolean; error?: string }>
+                delete: (ids: number[]) => Promise<any>
+                addTags: (ids: number[], tags: string[]) => Promise<any>
+                deleteOne: (id: number) => Promise<any>
             }
             cleanup: {
-                analyze: () => Promise<{
+                analyze: () => Promise<any>
+                getStats: () => Promise<any>
+                trashItems: (ids: number[]) => Promise<any>
+                calculateFocusScore: (imagePath: string) => Promise<any>
+            }
+            studio: {
+                generateCollage: (options: {
+                    type: 'text' | 'image'
+                    prompt?: string
+                    referenceIds?: number[]
+                    style: 'compact' | 'masonry' | 'filmstrip'
+                    backgroundColor: string
+                    limit?: number
+                }) => Promise<{
                     success: boolean
-                    data?: {
-                        stats: {
-                            duplicateGroups: number
-                            duplicateFiles: number
-                            duplicateSize: number
-                            similarGroups: number
-                            similarFiles: number
-                            lowQualityCount: number
-                            totalCount: number
-                            potentialSavings: number
-                        }
-                        exactDuplicates: { hash: string; count: number; totalSize: number; items: MediaItemRecord[] }[]
-                        similarImages: { groupId: number; similarity: number; items: { id: number; path: string; size: number }[] }[]
-                        lowQualityItems: MediaItemRecord[]
-                    }
+                    id?: number
+                    path?: string
+                    fileName?: string
+                    count?: number
                     error?: string
                 }>
-                getStats: () => Promise<{
-                    success: boolean
-                    data?: {
-                        duplicateGroups: number
-                        duplicateFiles: number
-                        duplicateSize: number
-                        lowQualityCount: number
-                        totalCount: number
-                    }
-                    error?: string
-                }>
-                trashItems: (ids: number[]) => Promise<{
-                    success: boolean
-                    successCount?: number
-                    failCount?: number
-                    errors?: string[]
-                    error?: string
-                }>
-                calculateFocusScore: (imagePath: string) => Promise<{
-                    success: boolean
-                    data?: {
-                        focus_score: number
-                        is_blurry: boolean
-                        brightness: number
-                        is_too_dark: boolean
-                        is_too_bright: boolean
-                    }
-                    error?: string
-                }>
+            }
+            people: {
+                getAll: () => Promise<any[]>
+                updateName: (id: number, name: string) => Promise<{ success: boolean }>
+                getGraph: () => Promise<{ nodes: any[]; links: any[] }>
+                getSharedMedia: (id1: number, id2: number) => Promise<any[]>
             }
         }
     }

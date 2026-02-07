@@ -151,7 +151,7 @@ function DuplicateGroup({
                                     />
                                     {item.thumbnail_path ? (
                                         <img
-                                            src={`nexus-media://local/${item.thumbnail_path}`}
+                                            src={`nexus-media://local/${item.thumbnail_path?.replace(/\\/g, '/')}`}
                                             alt=""
                                             className="w-12 h-12 object-cover rounded"
                                         />
@@ -213,7 +213,7 @@ function SimilarGroup({
             {/* 图片预览区域 */}
             <div className="relative aspect-video bg-nexus-bg-secondary rounded-lg overflow-hidden mb-3">
                 <img
-                    src={`nexus-media://local/${currentItem.path}`}
+                    src={`nexus-media://local/${currentItem.path.replace(/\\/g, '/')}`}
                     alt=""
                     className="w-full h-full object-contain"
                 />
@@ -255,7 +255,7 @@ function SimilarGroup({
                             }`}
                     >
                         <img
-                            src={`nexus-media://local/${item.path}`}
+                            src={`nexus-media://local/${item.path.replace(/\\/g, '/')}`}
                             alt=""
                             className="w-full h-full object-cover"
                         />
@@ -392,7 +392,7 @@ export function CleanupDashboard() {
         try {
             const result = await window.electronAPI.cleanup.trashItems(Array.from(selectedIds))
             if (result.success) {
-                setLastCleanStats({ count: result.successCount, size: totalSize })
+                setLastCleanStats({ count: result.successCount || 0, size: totalSize })
                 setShowSuccess(true)
                 setSelectedIds(new Set())
                 // 重新分析
@@ -601,7 +601,7 @@ export function CleanupDashboard() {
                                         >
                                             <div className="relative aspect-square">
                                                 <img
-                                                    src={`nexus-media://local/${item.path}`}
+                                                    src={`nexus-media://local/${item.path.replace(/\\/g, '/')}`}
                                                     alt=""
                                                     className="w-full h-full object-cover"
                                                 />

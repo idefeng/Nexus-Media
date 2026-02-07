@@ -26,6 +26,30 @@ export interface MediaItemRecord {
     ai_tags: string | null
     embedding: Buffer | null
     exif_data: string | null
+    width: number | null
+    height: number | null
+    duration: number | null
+}
+
+export interface PersonRecord {
+    id: number
+    name: string
+    cover_face_id: number | null
+    created_at: string
+    updated_at: string
+    face_count?: number
+    cover_thumbnail_path?: string | null
+}
+
+export interface FaceRecord {
+    id: number
+    media_id: number
+    person_id: number | null
+    embedding: Buffer
+    bbox: string
+    confidence: number
+    thumbnail_path: string | null
+    created_at: string
 }
 
 let db: Database.Database
@@ -76,6 +100,30 @@ export async function initDatabase(): Promise<void> {
         CREATE INDEX IF NOT EXISTS idx_media_type ON media_items(type);
         CREATE INDEX IF NOT EXISTS idx_media_favorite ON media_items(is_favorite);
         CREATE INDEX IF NOT EXISTS idx_media_created ON media_items(created_at);
+
+        CREATE TABLE IF NOT EXISTS persons (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            cover_face_id INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS faces (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            media_id INTEGER NOT NULL,
+            person_id INTEGER,
+            embedding BLOB NOT NULL,
+            bbox TEXT NOT NULL,
+            confidence REAL,
+            thumbnail_path TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(media_id) REFERENCES media_items(id) ON DELETE CASCADE,
+            FOREIGN KEY(person_id) REFERENCES persons(id) ON DELETE SET NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_faces_media ON faces(media_id);
+        CREATE INDEX IF NOT EXISTS idx_faces_person ON faces(person_id);
     `
     db.exec(schema)
 
@@ -495,6 +543,212 @@ export function getCleanupStats(): {
         lowQualityCount: lowQuality.count || 0,
         totalCount: total.count || 0
     }
+}
+
+/**
+ * 通用向量相似度搜索
+ * @param targetEmbedding 目标向量 (CLIP 512维)
+ * @param limit 返回结果数量
+ * @param minQuality 最小清晰度分值 (可选)
+ */
+export function searchByEmbedding(targetEmbedding: number[], limit: number = 50, minQuality: number = 80): MediaItemRecord[] {
+    const items = getItemsWithEmbedding()
+
+    // 手动计算余弦相似度并排序
+    // 注意：在资源极大的情况下应考虑采用 HNSW 等索引，但对于 10k 以下量级，内存计算很快
+    const scored = items.map(item => {
+        const itemEmbedding = new Float32Array(item.embedding.buffer)
+        let dotProduct = 0
+        let normA = 0
+        let normB = 0
+
+        for (let i = 0; i < targetEmbedding.length; i++) {
+            dotProduct += targetEmbedding[i] * itemEmbedding[i]
+            normA += targetEmbedding[i] * targetEmbedding[i]
+            normB += itemEmbedding[i] * itemEmbedding[i]
+        }
+
+        const score = dotProduct / (Math.sqrt(normA) * Math.sqrt(normB))
+        return { ...item, score }
+    })
+
+    // 排序并取 Top K
+    scored.sort((a, b) => b.score - a.score)
+    const topScored = scored.slice(0, limit)
+
+    // 根据 ID 获取完整记录
+    const ids = topScored.map(s => s.id)
+    if (ids.length === 0) return []
+
+    const placeholders = ids.map(() => '?').join(',')
+    return db.prepare(`
+        SELECT * FROM media_items 
+        WHERE id IN (${placeholders})
+    `).all(...ids) as MediaItemRecord[]
+}
+
+/**
+ * 增加一条创作记录（AI生成的图片）
+ */
+export function addCreation(item: {
+    path: string;
+    name: string;
+    size: number;
+    type: 'image';
+    ext: string;
+    tags: string;
+    notes: string;
+    width: number;
+    height: number;
+}): number {
+    const stmt = db.prepare(`
+        INSERT INTO media_items (
+            path, name, size, type, ext, tags, notes, width, height, created_at, updated_at
+        ) VALUES (
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        )
+    `)
+
+    const info = stmt.run(
+        item.path,
+        item.name,
+        item.size,
+        item.type,
+        item.ext,
+        item.tags,
+        item.notes,
+        item.width,
+        item.height
+    )
+
+    return info.lastInsertRowid as number
+}
+
+/**
+ * 创建一个新人物
+ */
+export function createPerson(name: string): number {
+    const info = db.prepare('INSERT INTO persons (name) VALUES (?)').run(name)
+    const id = info.lastInsertRowid as number
+
+    // 如果名字包含占位符，更新为带 ID 的名字
+    if (name === '未命名人物') {
+        db.prepare('UPDATE persons SET name = ? WHERE id = ?').run(`未命名人物 #${id}`, id)
+    }
+
+    return id
+}
+
+/**
+ * 增加人脸记录
+ */
+export function insertFace(face: Omit<FaceRecord, 'id' | 'created_at'>): number {
+    const stmt = db.prepare(`
+        INSERT INTO faces (media_id, person_id, embedding, bbox, confidence, thumbnail_path)
+        VALUES (?, ?, ?, ?, ?, ?)
+    `)
+    const info = stmt.run(
+        face.media_id,
+        face.person_id,
+        face.embedding,
+        face.bbox,
+        face.confidence,
+        face.thumbnail_path
+    )
+    const faceId = info.lastInsertRowid as number
+
+    // 如果该人物还没有封面图，设为封面
+    if (face.person_id) {
+        db.prepare(`
+            UPDATE persons 
+            SET cover_face_id = ? 
+            WHERE id = ? AND cover_face_id IS NULL
+        `).run(faceId, face.person_id)
+    }
+
+    return faceId
+}
+
+/**
+ * 获取所有人物
+ */
+export function getAllPersons(): PersonRecord[] {
+    return db.prepare(`
+        SELECT p.*, COUNT(f.id) as face_count, 
+               (SELECT thumbnail_path FROM faces WHERE id = p.cover_face_id) as cover_thumbnail_path
+        FROM persons p
+        LEFT JOIN faces f ON p.id = f.person_id
+        GROUP BY p.id
+        ORDER BY face_count DESC
+    `).all() as PersonRecord[]
+}
+
+/**
+ * 获取或创建人物
+ */
+export function getOrCreatePerson(name: string): number {
+    const existing = db.prepare('SELECT id FROM persons WHERE name = ?').get(name) as { id: number } | undefined
+    if (existing) return existing.id
+
+    const info = db.prepare('INSERT INTO persons (name) VALUES (?)').run(name)
+    return info.lastInsertRowid as number
+}
+
+/**
+ * 更新人物名称
+ */
+export function updatePersonName(id: number, name: string): void {
+    db.prepare('UPDATE persons SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(name, id)
+}
+
+/**
+ * 获取未聚类的人脸
+ */
+export function getUnclusteredFaces(): FaceRecord[] {
+    return db.prepare('SELECT * FROM faces WHERE person_id IS NULL').all() as FaceRecord[]
+}
+
+/**
+ * 批量更新人脸的人物归属
+ */
+export function updateFacesPerson(faceIds: number[], personId: number): void {
+    const stmt = db.prepare('UPDATE faces SET person_id = ? WHERE id = ?')
+    const transaction = db.transaction((ids: number[], pid: number) => {
+        for (const id of ids) stmt.run(pid, id)
+    })
+    transaction(faceIds, personId)
+}
+
+/**
+ * 获取社交图谱数据
+ */
+export function getSocialGraphData() {
+    // 节点：所有人物
+    const persons = getAllPersons()
+
+    // 边：统计不同人物出现在同一媒体中的次数
+    const edges = db.prepare(`
+        SELECT f1.person_id as source, f2.person_id as target, COUNT(*) as value
+        FROM faces f1
+        JOIN faces f2 ON f1.media_id = f2.media_id AND f1.person_id < f2.person_id
+        WHERE f1.person_id IS NOT NULL AND f2.person_id IS NOT NULL
+        GROUP BY f1.person_id, f2.person_id
+    `).all() as { source: number; target: number; value: number }[]
+
+    return { nodes: persons, links: edges }
+}
+
+/**
+ * 获取两个人共同出现的媒体项
+ */
+export function getSharedMedia(personId1: number, personId2: number): MediaItemRecord[] {
+    return db.prepare(`
+        SELECT DISTINCT m.*
+        FROM media_items m
+        JOIN faces f1 ON m.id = f1.media_id
+        JOIN faces f2 ON m.id = f2.media_id
+        WHERE f1.person_id = ? AND f2.person_id = ?
+    `).all(personId1, personId2) as MediaItemRecord[]
 }
 
 /**

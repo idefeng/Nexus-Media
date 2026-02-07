@@ -9,7 +9,10 @@
         "images": "画像",
         "videos": "動画",
         "settings": "設定",
-        "ai_tag_cloud": "AI タグクラウド"
+        "ai_tag_cloud": "AI タグクラウド",
+        "cleanup": "クリーニング助手",
+        "studio": "クリエイティブスタジオ",
+        "people": "人物"
     },
     "topbar": {
         "search_placeholder": "メディア、タグ、コマンドを検索...",
@@ -65,5 +68,35 @@
         "processing": "AI 処理中: 残り {{count}} 件",
         "scanning": "ライブラリをスキャン中...",
         "total_items": "合計 {{count}} 件"
+    },
+    "cleanup": {
+        "title": "クリーニング助手",
+        "description": "重複ファイル、類似写真、低クオリティな画像を検出してクリーンアップします",
+        "analyzing": "メディアライブラリを分析中...",
+        "analyzing_hint": "時間がかかる場合があります。しばらくお待ちください",
+        "rescan": "再スキャン",
+        "duplicates": "重複項目",
+        "similar": "類似写真",
+        "lowquality": "低クオリティ",
+        "savings": "節約可能な容量",
+        "tab_duplicates": "完全一致",
+        "tab_similar": "類似写真",
+        "tab_lowquality": "低クオリティ",
+        "no_duplicates": "重複ファイルは見つかりませんでした",
+        "no_duplicates_hint": "ライブラリはとてもきれいです！",
+        "no_similar": "類似写真は見つかりませんでした",
+        "no_lowquality": "低クオリティな写真は見つかりませんでした",
+        "clean_selected": "選択項目をクリーンアップ"
+    },
+    "studio": {
+        "title": "AI クリエイティブスタジオ",
+        "subtitle": "Nexus Creative Studio",
+        "mode_text": "テーマ生成",
+        "mode_image": "イメージからイメージ",
+        "generating": "AI が作成中...",
+        "success": "作品が保存されました"
+    },
+    "common": {
+        "cancel": "キャンセル"
     }
 }

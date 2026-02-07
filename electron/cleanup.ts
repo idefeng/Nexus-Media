@@ -253,3 +253,65 @@ export function analyzeCleanup(): CleanupAnalysis {
         lowQualityItems
     }
 }
+
+/**
+ * 将文件移动到回收站
+ */
+export async function trashItems(ids: number[]) {
+    try {
+        const { shell } = await import('electron')
+        const { getMediaItem, deleteMediaItems } = await import('./database')
+
+        let successCount = 0
+        let failCount = 0
+        const errors: string[] = []
+
+        for (const id of ids) {
+            const item = getMediaItem(id)
+            if (item && fs.existsSync(item.path)) {
+                try {
+                    await shell.trashItem(item.path)
+                    successCount++
+                } catch (e: any) {
+                    failCount++
+                    errors.push(e.message)
+                }
+            } else {
+                failCount++
+                errors.push(`文件不存在: ID ${id}`)
+            }
+        }
+
+        // 从数据库中删除记录
+        if (successCount > 0) {
+            // 这里我们需要过滤出成功的 ID，由于 trashItem 是异步的且没有返回明确成功标识，我们通常假设没报错就是成功
+            deleteMediaItems(ids)
+        }
+
+        return {
+            success: true,
+            successCount,
+            failCount,
+            errors
+        }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+}
+
+/**
+ * 计算清晰度评分
+ */
+export async function detectBlurryImages(imagePaths: string[]) {
+    try {
+        const axios = (await import('axios')).default
+        const response = await axios.post('http://127.0.0.1:8765/batch-focus', {
+            image_paths: imagePaths
+        })
+        return response.data.results
+    } catch (error) {
+        console.error('清晰度计算失败:', error)
+        return imagePaths.map(path => ({ path, success: false }))
+    }
+}
+

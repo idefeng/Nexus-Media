@@ -8,11 +8,14 @@ import { Dashboard } from './components/dashboard/Dashboard'
 import { TopBar, Sidebar, StatusBar } from './components/layout'
 import { MediaGrid } from './components/media'
 import { SettingsPage } from './components/settings/SettingsPage'
-import { CleanupDashboard } from './components/cleanup'
+import { CleanupDashboard } from './components/cleanup/CleanupDashboard'
+import { StudioDashboard } from './components/studio/StudioDashboard'
+import { PeoplePage } from './components/people/PeoplePage'
 import { DetailModal } from './components/preview'
-import { recordToMediaItem } from './types'
 import { type FilterState, defaultFilterState } from './components/layout/FilterPanel'
-import type { ViewType, MediaItem, ScanProgress, TagStat } from './types'
+import { recordToMediaItem, type ViewType, MediaItem, ScanProgress, TagStat, MediaItemRecord } from './types'
+
+
 
 function App() {
     // 状态管理
@@ -40,6 +43,7 @@ function App() {
             const result = await window.electronAPI.media.getAll()
             console.log('从数据库加载结果:', result)
             if (result.success && result.items) {
+                // Use the fixed mapping function
                 const items: MediaItem[] = (result.items as MediaItemRecord[]).map(recordToMediaItem)
                 console.log('转换后的媒体项:', items)
                 setMediaItems(items)
@@ -106,7 +110,7 @@ function App() {
                             type: f.type,
                             tags: [],
                             notes: '',
-                            thumbnailPath: f.type === 'image' ? `nexus-media://local/${f.path}` : null,
+                            thumbnailPath: f.type === 'image' ? `nexus-media://local/${f.path.replace(/\\/g, '/')}` : null,
                             fileName: f.name,
                             fileSize: f.size,
                             ext: f.ext,
@@ -486,6 +490,10 @@ function App() {
                         <SettingsPage />
                     ) : currentView === 'cleanup' ? (
                         <CleanupDashboard />
+                    ) : currentView === 'studio' ? (
+                        <StudioDashboard />
+                    ) : currentView === 'people' ? (
+                        <PeoplePage />
                     ) : (
                         <MediaGrid
                             items={filteredItems}

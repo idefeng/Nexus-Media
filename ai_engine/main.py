@@ -90,15 +90,72 @@ class BatchFocusResponse(BaseModel):
     results: list[BatchFocusItem]
 
 
+class CollageRequest(BaseModel):
+    image_paths: list[str]
+    style: str = "compact"
+    background_color: str = "#000000"
+    output_path: str
+
+
+class CollageResponse(BaseModel):
+    success: bool
+    output_path: str
+    error: Optional[str] = None
+
+
+class FaceItem(BaseModel):
+    bbox: list[int]
+    embedding: list[float]
+    confidence: float
+    gender: str
+    age: int
+    thumbnail_path: Optional[str] = None
+
+
+class FaceDetectRequest(BaseModel):
+    image_path: str
+    save_dir: Optional[str] = None
+
+
+class FaceDetectResponse(BaseModel):
+    success: bool
+    faces: list[FaceItem]
+    error: Optional[str] = None
+
+
+class ClusterRequest(BaseModel):
+    embeddings: list[list[float]]
+    threshold: float = 0.6
+
+
+class ClusterResponse(BaseModel):
+    success: bool
+    labels: list[int]
+    error: Optional[str] = None
+
+
 class HealthResponse(BaseModel):
     status: str
     cuda: bool
     device: str
     gpu_name: Optional[str] = None
     gpu_memory: Optional[str] = None
+    face_engine_ready: bool = False
 
 
 # ==================== API 端点 ====================
+
+@app.post("/collage", response_model=CollageResponse)
+async def generate_collage(request: CollageRequest):
+    """生成 AI 拼图"""
+    try:
+        from collage_maker import CollageMaker
+        maker = CollageMaker(bg_color=request.background_color)
+        path = maker.generate(request.image_paths, style=request.style, output_path=request.output_path)
+        return CollageResponse(success=True, output_path=path)
+    except Exception as e:
+        return CollageResponse(success=False, output_path="", error=str(e))
+
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
@@ -106,13 +163,45 @@ async def health_check():
     model = get_model()
     info = model.get_device_info()
     
+    face_ready = False
+    try:
+        from face_engine import get_face_engine
+        face_ready = get_face_engine().initialized
+    except:
+        pass
+
     return HealthResponse(
         status="ok",
         cuda=info["cuda_available"],
         device=info["device"],
         gpu_name=info.get("gpu_name"),
-        gpu_memory=info.get("gpu_memory_total")
+        gpu_memory=info.get("gpu_memory_total"),
+        face_engine_ready=face_ready
     )
+
+
+@app.post("/detect-faces", response_model=FaceDetectResponse)
+async def detect_faces(request: FaceDetectRequest):
+    """人脸检测与特征提取"""
+    try:
+        from face_engine import get_face_engine
+        engine = get_face_engine()
+        faces = engine.detect_faces(request.image_path, save_dir=request.save_dir)
+        return FaceDetectResponse(success=True, faces=[FaceItem(**f) for f in faces])
+    except Exception as e:
+        return FaceDetectResponse(success=False, faces=[], error=str(e))
+
+
+@app.post("/cluster-faces", response_model=ClusterResponse)
+async def cluster_faces(request: ClusterRequest):
+    """人脸聚类 API"""
+    try:
+        from face_engine import get_face_engine
+        engine = get_face_engine()
+        labels = engine.cluster_faces(request.embeddings, threshold=request.threshold)
+        return ClusterResponse(success=True, labels=labels)
+    except Exception as e:
+        return ClusterResponse(success=False, labels=[], error=str(e))
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)

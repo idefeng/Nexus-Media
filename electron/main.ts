@@ -5,10 +5,18 @@
 import { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, clipboard } from 'electron'
 import path from 'path'
 import { pathToFileURL } from 'url'
-import { initDatabase, insertMediaItems, getAllMediaItems, getMediaStats, getMediaCount, toggleFavorite, updateTags, updateNotes, getAllTags, getMediaItem, closeDatabase, updateAiTags, getPendingAiItems, deleteMediaItem, deleteMediaItems, batchAddTags } from './database'
+import {
+    initDatabase, insertMediaItems, getAllMediaItems, getMediaStats, getMediaCount,
+    toggleFavorite, updateTags, updateNotes, getAllTags, getMediaItem, closeDatabase,
+    updateAiTags, getPendingAiItems, deleteMediaItem, deleteMediaItems, batchAddTags,
+    updateMd5Hash, updateFocusScore, getCleanupStats, getExactDuplicates, getLowQualityItems,
+    getAllPersons, updatePersonName, getSocialGraphData, getSharedMedia
+} from './database'
 import { scanFolders, type ScannedFile, type ScanProgress } from './scanner'
 import { initThumbnailsDir, startThumbnailBatch } from './thumbnails'
 import { startAiServer, stopAiServer, checkHealth, analyzeImage, semanticSearch, processBackgroundAnalysis, getAiStatus } from './ai-sidecar'
+import { generateCollage } from './studio'
+import { processMd5Batch, detectSimilarImages as getSimilarGroups, trashItems as trashMediaItems } from './cleanup'
 
 // 注册自定义协议以加载本地文件
 protocol.registerSchemesAsPrivileged([
@@ -40,7 +48,11 @@ function createWindow() {
 
     // 加载页面
     if (isDev) {
-        mainWindow.loadURL('http://localhost:5173')
+        if (process.env.VITE_DEV_SERVER_URL) {
+            mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
+        } else {
+            mainWindow.loadURL('http://localhost:5173')
+        }
         mainWindow.webContents.openDevTools()
     } else {
         mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
@@ -51,104 +63,55 @@ function createWindow() {
     })
 }
 
-// 应用初始化
-app.whenReady().then(async () => {
-    // 注册本地资源处理器
+// 应用启动
+app.whenReady().then(() => {
+    // 注册协议处理
     protocol.handle('nexus-media', (request) => {
-        try {
-            // 使用 URL 对象解析，避免手动替换字符串导致的路径错误
-            const url = new URL(request.url)
-            // 路径通常在 hostname 之后，我们需要获取完整的路径部分
-            // 格式约定为: nexus-media://local/C:/path/to/file
-            let filePath = decodeURIComponent(url.pathname)
-
-            // 在 Windows 上，pathname 可能会以 /C:/... 开头，需要去掉开头的斜杠
-            if (filePath.startsWith('/') && filePath.length > 2 && filePath[1].match(/[a-zA-Z]/) && filePath[2] === ':') {
-                filePath = filePath.substring(1)
-            } else if (filePath.startsWith('/') && !filePath.includes(':')) {
-                // 非 Windows 绝对路径或者相对路径处理
-                // 这里假设是绝对路径，如果不是 Windows 盘符开头
-            }
-
-            // 使用 pathToFileURL 转换为标准的 file:// 协议，处理跨平台差异
-            const fileUrl = pathToFileURL(filePath).toString()
-            return net.fetch(fileUrl)
-        } catch (error) {
-            console.error('协议处理失败:', error)
-            return new Response('Invalid path', { status: 400 })
-        }
-    })
-
-    // 初始化数据库
-    try {
-        await initDatabase()
-        console.log('数据库初始化成功')
-    } catch (error) {
-        console.error('数据库初始化失败:', error)
-    }
-
-    // 初始化缩略图目录
-    initThumbnailsDir()
-    // 启动后台缩略图生成任务 (处理之前未完成的任务)
-    startThumbnailBatch()
-
-    // 启动 AI 服务（后台）
-    startAiServer().then(ready => {
-        if (ready) {
-            console.log('AI 服务已启动')
-            // 启动后台 AI 分析任务（每 30 秒检查一次）
-            setInterval(() => {
-                processBackgroundAnalysis().catch(err => console.error('后台 AI 分析错误:', err))
-            }, 30000)
-        } else {
-            console.log('AI 服务启动失败，将以无 AI 模式运行')
-        }
-    })
-
-    // 启动后台 EXIF 提取任务（每 20 秒检查一次）
-    import('./exif').then(({ processExifBatch }) => {
-        // 初始处理
-        processExifBatch().catch(err => console.error('EXIF 提取错误:', err))
-        // 定期处理
-        setInterval(() => {
-            processExifBatch().catch(err => console.error('EXIF 提取错误:', err))
-        }, 20000)
-    })
-
-    // 启动后台 MD5 哈希计算任务（每 15 秒检查一次）
-    import('./cleanup').then(({ processMd5Batch }) => {
-        // 初始处理
-        processMd5Batch().catch(err => console.error('MD5 计算错误:', err))
-        // 定期处理
-        setInterval(() => {
-            processMd5Batch().catch(err => console.error('MD5 计算错误:', err))
-        }, 15000)
+        const url = request.url.replace('nexus-media://local/', '')
+        const decodedPath = decodeURIComponent(url)
+        return net.fetch(pathToFileURL(decodedPath).toString())
     })
 
     createWindow()
 
-    app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) {
-            createWindow()
-        }
+    // 初始化数据库
+    initDatabase().then(() => {
+        console.log('数据库初始化成功')
+        // 初始化缩略图目录
+        initThumbnailsDir()
+        // 启动后台扫描任务
+        startThumbnailBatch()
+        // 启动后台分析任务
+        processBackgroundAnalysis()
+        // 启动 MD5 计算任务
+        processMd5Batch()
+    }).catch(err => {
+        console.error('数据库初始化失败:', err)
     })
+
+    // 启动 AI Server
+    startAiServer()
 })
 
+// 所有窗口关闭时退出
 app.on('window-all-closed', () => {
-    stopAiServer()
-    closeDatabase()
     if (process.platform !== 'darwin') {
+        stopAiServer()
+        closeDatabase()
         app.quit()
+    }
+})
+
+app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow()
     }
 })
 
 // ==================== IPC 处理器 ====================
 
 // 窗口控制
-ipcMain.handle('window:minimize', () => {
-    mainWindow?.minimize()
-})
-
+ipcMain.handle('window:minimize', () => mainWindow?.minimize())
 ipcMain.handle('window:maximize', () => {
     if (mainWindow?.isMaximized()) {
         mainWindow.unmaximize()
@@ -156,364 +119,246 @@ ipcMain.handle('window:maximize', () => {
         mainWindow?.maximize()
     }
 })
+ipcMain.handle('window:close', () => mainWindow?.close())
 
-ipcMain.handle('window:close', () => {
-    mainWindow?.close()
-})
-
-// 选择文件夹（支持多选）
+// 对话框
 ipcMain.handle('dialog:selectFolder', async () => {
-    const result = await dialog.showOpenDialog(mainWindow!, {
-        properties: ['openDirectory', 'multiSelections'],
-        title: '选择要扫描的文件夹'
+    const result = await dialog.showOpenDialog({
+        properties: ['openDirectory', 'multiSelections']
     })
     return result.filePaths
 })
 
-// 扫描选中的文件夹
+// 文件扫描
 ipcMain.handle('scan:folders', async (_event, folderPaths: string[]) => {
-    if (!folderPaths || folderPaths.length === 0) {
-        return { success: false, message: '未选择文件夹' }
-    }
-
-    console.log('开始扫描文件夹:', folderPaths)
-
     try {
-        // 扫描进度回调
-        const onProgress = (progress: ScanProgress) => {
-            // 将新文件插入数据库
-            const insertedCount = insertMediaItems(progress.newFiles)
-
-            // 发送进度到渲染进程
-            mainWindow?.webContents.send('scan:progress', {
-                currentPath: progress.currentPath,
-                filesFound: progress.filesFound,
-                filesInserted: insertedCount,
-                newFiles: progress.newFiles.map(f => ({
-                    path: f.path,
-                    name: f.name,
-                    type: f.type,
-                    ext: f.ext,
-                    size: f.size
-                }))
-            })
-        }
-
-        // 执行扫描
-        const allFiles = await scanFolders(folderPaths, onProgress, 30)
-
-        // 启动后台缩略图生成任务
-        startThumbnailBatch()
-
-        // 获取最终统计
-        const stats = getMediaStats()
-
-        // 通知扫描完成
-        mainWindow?.webContents.send('scan:complete', {
-            totalScanned: allFiles.length,
-            stats: stats
+        const results = await scanFolders(folderPaths, (progress: ScanProgress) => {
+            mainWindow?.webContents.send('scan:progress', progress)
         })
 
-        return {
-            success: true,
-            totalScanned: allFiles.length,
-            stats: stats
+        // 将结果同步到数据库
+        const count = insertMediaItems(results)
+
+        const stats = getMediaStats()
+        const info = {
+            totalScanned: results.length,
+            stats
         }
-    } catch (error) {
-        console.error('扫描失败:', error)
-        return {
-            success: false,
-            message: error instanceof Error ? error.message : '扫描失败'
-        }
+
+        mainWindow?.webContents.send('scan:complete', info)
+        return { success: true, ...info }
+    } catch (error: any) {
+        return { success: false, message: error.message }
     }
 })
 
-// 获取所有媒体项
-ipcMain.handle('media:getAll', () => {
+// 媒体操作
+ipcMain.handle('media:getAll', async () => {
     try {
         const items = getAllMediaItems()
         return { success: true, items }
-    } catch (error) {
-        console.error('获取媒体项失败:', error)
-        return { success: false, items: [], message: error instanceof Error ? error.message : '获取失败' }
+    } catch (error: any) {
+        return { success: false, message: error.message }
     }
 })
 
-// 获取媒体统计
-ipcMain.handle('media:getStats', () => {
+ipcMain.handle('media:getStats', async () => {
     try {
         const stats = getMediaStats()
         const count = getMediaCount()
         return { success: true, stats, count }
-    } catch (error) {
-        console.error('获取统计失败:', error)
-        return { success: false, stats: { images: 0, videos: 0, total: 0 }, count: 0 }
+    } catch (error: any) {
+        return { success: false, message: error.message }
     }
 })
 
-// 切换收藏状态
-ipcMain.handle('media:toggleFavorite', (_event, id: number) => {
+ipcMain.handle('media:toggleFavorite', async (_event, id: number) => {
     try {
         const success = toggleFavorite(id)
         return { success }
     } catch (error) {
-        console.error('切换收藏状态失败:', error)
         return { success: false }
     }
 })
 
-// 更新标签
-ipcMain.handle('media:updateTags', (_event, id: number, tags: string[]) => {
+ipcMain.handle('media:updateTags', async (_event, id, tags) => {
     try {
         updateTags(id, tags)
         return { success: true }
     } catch (error) {
-        console.error('更新标签失败:', error)
         return { success: false }
     }
 })
 
-// 更新备注
-ipcMain.handle('media:updateNotes', (_event, id: number, notes: string) => {
+ipcMain.handle('media:updateNotes', async (_event, id, notes) => {
     try {
         updateNotes(id, notes)
         return { success: true }
     } catch (error) {
-        console.error('更新备注失败:', error)
         return { success: false }
     }
 })
 
-// 获取所有标签（用于自动补全）
-ipcMain.handle('media:getAllTags', () => {
+ipcMain.handle('media:getAllTags', async () => {
     try {
         const tags = getAllTags()
         return { success: true, tags }
     } catch (error) {
-        console.error('获取标签失败:', error)
         return { success: false, tags: [] }
     }
 })
 
-// 获取单个媒体项
-ipcMain.handle('media:getItem', (_event, id: number) => {
+ipcMain.handle('media:getItem', async (_event, id) => {
     try {
         const item = getMediaItem(id)
         return { success: true, item }
     } catch (error) {
-        console.error('获取媒体项失败:', error)
         return { success: false, item: null }
     }
 })
 
-// ==================== AI 相关 IPC 处理器 ====================
+// AI 功能
+ipcMain.handle('ai:getStatus', () => getAiStatus())
 
-// 获取 AI 服务状态
-ipcMain.handle('ai:getStatus', () => {
-    return getAiStatus()
+ipcMain.handle('ai:analyze', async (_event, imagePath) => {
+    return await analyzeImage(imagePath)
 })
 
-// 分析单张图片
-ipcMain.handle('ai:analyze', async (_event, imagePath: string) => {
-    try {
-        const result = await analyzeImage(imagePath)
-        return result
-    } catch (error) {
-        console.error('AI 分析失败:', error)
-        return { success: false, error: String(error) }
-    }
+ipcMain.handle('ai:semanticSearch', async (_event, query, limit) => {
+    return await semanticSearch(query, limit)
 })
 
-// 语义搜索
-ipcMain.handle('ai:semanticSearch', async (_event, query: string, limit: number = 20) => {
+ipcMain.handle('ai:adoptTag', async (_event, id, tag) => {
     try {
-        const result = await semanticSearch(query, limit)
-        return result
-    } catch (error) {
-        console.error('语义搜索失败:', error)
-        return { success: false, error: String(error) }
-    }
-})
-
-// 采纳 AI 建议标签
-ipcMain.handle('ai:adoptTag', (_event, id: number, tag: string) => {
-    try {
-        // 获取当前标签
         const item = getMediaItem(id)
-        if (!item) return { success: false, error: '媒体项不存在' }
+        if (!item) return { success: false, error: 'Item not found' }
 
-        const currentTags: string[] = JSON.parse(item.tags || '[]')
-        if (!currentTags.includes(tag)) {
-            currentTags.push(tag)
-            updateTags(id, currentTags)
+        const tags = JSON.parse(item.tags || '[]')
+        if (!tags.includes(tag)) {
+            tags.push(tag)
+            updateTags(id, tags)
         }
-        return { success: true, tags: currentTags }
-    } catch (error) {
-        console.error('采纳标签失败:', error)
-        return { success: false, error: String(error) }
+        return { success: true, tags }
+    } catch (error: any) {
+        return { success: false, error: error.message }
     }
 })
 
-// ==================== Shell 相关 IPC 处理器 ====================
-
-// 在资源管理器中显示文件
-ipcMain.handle('shell:showInExplorer', (_event, filePath: string) => {
+// Shell 操作
+ipcMain.handle('shell:showInExplorer', async (_event, filePath) => {
     try {
         shell.showItemInFolder(filePath)
         return { success: true }
-    } catch (error) {
-        console.error('打开资源管理器失败:', error)
-        return { success: false, error: String(error) }
+    } catch (error: any) {
+        return { success: false, error: error.message }
     }
 })
 
-// 复制路径到剪贴板
-ipcMain.handle('shell:copyPath', (_event, filePath: string) => {
+ipcMain.handle('shell:copyPath', async (_event, filePath) => {
     try {
         clipboard.writeText(filePath)
         return { success: true }
-    } catch (error) {
-        console.error('复制路径失败:', error)
-        return { success: false, error: String(error) }
+    } catch (error: any) {
+        return { success: false, error: error.message }
     }
 })
 
-// 删除单个媒体项（移至回收站并从数据库删除）
-ipcMain.handle('media:delete', async (_event, id: number) => {
+// 批量操作
+ipcMain.handle('media:batchDelete', async (_event, ids) => {
     try {
-        const item = getMediaItem(id)
-        if (!item) return { success: false, error: '媒体项不存在' }
+        const count = deleteMediaItems(ids)
+        return { success: true, deleted: count }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+})
 
-        // 移动文件到回收站
-        await shell.trashItem(item.path)
+ipcMain.handle('media:batchAddTags', async (_event, ids, tags) => {
+    try {
+        const count = batchAddTags(ids, tags)
+        return { success: true, updated: count }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+})
 
-        // 从数据库删除
-        deleteMediaItem(id)
-
+ipcMain.handle('media:delete', async (_event, id) => {
+    try {
+        const success = deleteMediaItem(id)
         return { success: true }
-    } catch (error) {
-        console.error('删除媒体项失败:', error)
-        return { success: false, error: String(error) }
+    } catch (error: any) {
+        return { success: false, error: error.message }
     }
 })
 
-// 批量删除媒体项
-ipcMain.handle('media:batchDelete', async (_event, ids: number[]) => {
-    try {
-        let deletedCount = 0
-        for (const id of ids) {
-            const item = getMediaItem(id)
-            if (item) {
-                try {
-                    await shell.trashItem(item.path)
-                    deletedCount++
-                } catch (e) {
-                    console.error(`移动文件到回收站失败: ${item.path}`, e)
-                }
-            }
-        }
-
-        // 从数据库批量删除
-        const dbDeleted = deleteMediaItems(ids)
-
-        return { success: true, deleted: deletedCount, dbDeleted }
-    } catch (error) {
-        console.error('批量删除失败:', error)
-        return { success: false, error: String(error) }
-    }
-})
-
-// 批量添加标签
-ipcMain.handle('media:batchAddTags', (_event, ids: number[], tags: string[]) => {
-    try {
-        const updated = batchAddTags(ids, tags)
-        return { success: true, updated }
-    } catch (error) {
-        console.error('批量添加标签失败:', error)
-        return { success: false, error: String(error) }
-    }
-})
-
-// ==================== 清理助手 ====================
-
-// 获取清理分析结果
+// 清理助手
 ipcMain.handle('cleanup:analyze', async () => {
     try {
-        const { analyzeCleanup } = await import('./cleanup')
-        const analysis = analyzeCleanup()
-        return { success: true, data: analysis }
-    } catch (error) {
-        console.error('清理分析失败:', error)
-        return { success: false, error: String(error) }
-    }
-})
-
-// 获取清理统计
-ipcMain.handle('cleanup:getStats', () => {
-    try {
-        const { getCleanupStats } = require('./database')
         const stats = getCleanupStats()
-        return { success: true, data: stats }
-    } catch (error) {
-        console.error('获取清理统计失败:', error)
-        return { success: false, error: String(error) }
-    }
-})
-
-// 批量删除到回收站（清理助手专用）
-ipcMain.handle('cleanup:trashItems', async (_event, ids: number[]) => {
-    try {
-        let successCount = 0
-        let failCount = 0
-        const errors: string[] = []
-
-        for (const id of ids) {
-            const item = getMediaItem(id)
-            if (item) {
-                try {
-                    await shell.trashItem(item.path)
-                    successCount++
-                } catch (e) {
-                    failCount++
-                    errors.push(`${item.name}: ${String(e)}`)
-                }
-            }
-        }
-
-        // 从数据库删除成功移动到回收站的项目
-        if (successCount > 0) {
-            deleteMediaItems(ids.slice(0, successCount))
-        }
+        const exactDuplicates = getExactDuplicates()
+        const similarImages = await getSimilarGroups()
+        const lowQualityItems = getLowQualityItems()
 
         return {
             success: true,
-            successCount,
-            failCount,
-            errors: errors.slice(0, 5) // 最多返回5个错误
+            data: {
+                stats: {
+                    ...stats,
+                    similarGroups: similarImages.length,
+                    similarFiles: similarImages.reduce((sum, g) => sum + g.items.length, 0),
+                    potentialSavings: stats.duplicateSize + 0 // 这里可以增加更多估算
+                },
+                exactDuplicates,
+                similarImages,
+                lowQualityItems
+            }
         }
-    } catch (error) {
-        console.error('批量移动到回收站失败:', error)
-        return { success: false, error: String(error) }
+    } catch (error: any) {
+        return { success: false, error: error.message }
     }
 })
 
-// 请求 AI 服务计算清晰度评分
-ipcMain.handle('cleanup:calculateFocusScore', async (_event, imagePath: string) => {
+ipcMain.handle('cleanup:getStats', async () => {
     try {
-        const response = await fetch('http://127.0.0.1:8765/focus-score', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image_path: imagePath })
-        })
-
-        if (!response.ok) {
-            throw new Error(`AI 服务返回错误: ${response.status}`)
-        }
-
-        const data = await response.json()
-        return { success: true, data }
-    } catch (error) {
-        console.error('计算清晰度评分失败:', error)
-        return { success: false, error: String(error) }
+        const stats = getCleanupStats()
+        return { success: true, data: stats }
+    } catch (error: any) {
+        return { success: false, error: error.message }
     }
+})
+
+ipcMain.handle('cleanup:trashItems', async (_event, ids) => {
+    return await trashMediaItems(ids)
+})
+
+ipcMain.handle('cleanup:calculateFocusScore', async (_event, imagePath) => {
+    try {
+        const { detectBlurryImages } = await import('./cleanup')
+        const result = await detectBlurryImages([imagePath])
+        return { success: true, data: result[0] }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+})
+
+ipcMain.handle('studio:generateCollage', async (_event, options) => {
+    return await generateCollage(options)
+})
+
+// 人物/社交圈层
+ipcMain.handle('people:getAll', async () => {
+    return getAllPersons()
+})
+
+ipcMain.handle('people:updateName', async (_event, id, name) => {
+    updatePersonName(id, name)
+    return { success: true }
+})
+
+ipcMain.handle('people:getGraph', async () => {
+    return getSocialGraphData()
+})
+
+ipcMain.handle('people:getSharedMedia', async (_event, id1, id2) => {
+    return getSharedMedia(id1, id2)
 })
