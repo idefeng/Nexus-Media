@@ -17,6 +17,8 @@ import { initThumbnailsDir, startThumbnailBatch } from './thumbnails'
 import { startAiServer, stopAiServer, checkHealth, analyzeImage, semanticSearch, processBackgroundAnalysis, getAiStatus } from './ai-sidecar'
 import { generateCollage } from './studio'
 import { processMd5Batch, detectSimilarImages as getSimilarGroups, trashItems as trashMediaItems, detectBlurryImages } from './cleanup'
+import fs from 'fs-extra'
+import type { AppConfig } from './config-store'
 
 // 注册自定义协议以加载本地文件
 protocol.registerSchemesAsPrivileged([
@@ -461,3 +463,163 @@ ipcMain.handle('people:getGraph', async () => {
 ipcMain.handle('people:getSharedMedia', async (_event, id1, id2) => {
     return getSharedMedia(id1, id2)
 })
+
+// ==================== Configuration Management ====================
+
+// Get all configuration
+ipcMain.handle('config:getAll', async () => {
+    try {
+        const { configStore } = await import('./config-store')
+        return { success: true, data: configStore.store }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+})
+
+// Update configuration
+ipcMain.handle('config:update', async (_event, updates: Partial<AppConfig>) => {
+    try {
+        const { configStore } = await import('./config-store')
+        Object.entries(updates).forEach(([key, value]) => {
+            configStore.set(key as keyof AppConfig, value as any)
+        })
+        return { success: true }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+})
+
+// Select new database path
+ipcMain.handle('config:selectDatabasePath', async () => {
+    try {
+        const result = await dialog.showOpenDialog({
+            properties: ['openDirectory'],
+            title: '选择数据库存储位置'
+        })
+
+        if (!result.canceled && result.filePaths[0]) {
+            const newPath = path.join(result.filePaths[0], 'nexus_media.db')
+            return { success: true, path: newPath }
+        }
+        return { success: false }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+})
+
+// Migrate database to new location
+ipcMain.handle('config:migrateDatabase', async (_event, newPath: string, copyData: boolean) => {
+    try {
+        const { configStore } = await import('./config-store')
+        const oldPath = configStore.get('database.path')
+
+        // 如果选择复制数据且旧数据库存在
+        if (copyData && await fs.pathExists(oldPath)) {
+            // 确保目标目录存在
+            await fs.ensureDir(path.dirname(newPath))
+            // 复制数据库文件
+            await fs.copy(oldPath, newPath, { overwrite: true })
+            console.log(`Database migrated from ${oldPath} to ${newPath}`)
+        }
+
+        // 更新配置
+        configStore.set('database.path', newPath)
+
+        // 关闭旧数据库连接
+        closeDatabase()
+
+        // 重新初始化数据库（使用新路径）
+        await initDatabase()
+
+        return { success: true, message: '数据库迁移成功' }
+    } catch (error: any) {
+        console.error('Database migration failed:', error)
+        return { success: false, error: error.message }
+    }
+})
+
+// Get database size
+ipcMain.handle('config:getDatabaseSize', async () => {
+    try {
+        const { configStore } = await import('./config-store')
+        const dbPath = configStore.get('database.path')
+        if (await fs.pathExists(dbPath)) {
+            const stats = await fs.stat(dbPath)
+            return { success: true, size: stats.size }
+        }
+        return { success: true, size: 0 }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+})
+
+// Add scan directory
+ipcMain.handle('config:addScanDirectory', async (_event, dirPath: string) => {
+    try {
+        const { addScanDirectory } = await import('./config-store')
+        const added = addScanDirectory(dirPath)
+        return { success: true, added }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+})
+
+// Remove scan directory
+ipcMain.handle('config:removeScanDirectory', async (_event, dirPath: string) => {
+    try {
+        const { removeScanDirectory } = await import('./config-store')
+        const removed = removeScanDirectory(dirPath)
+        return { success: true, removed }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+})
+
+// Update scan directory timestamp
+ipcMain.handle('config:updateScanTimestamp', async (_event, dirPath: string) => {
+    try {
+        const { updateScanTimestamp } = await import('./config-store')
+        const updated = updateScanTimestamp(dirPath)
+        return { success: true, updated }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+})
+
+// Toggle AI features
+ipcMain.handle('config:toggleAI', async (_event, enabled: boolean) => {
+    try {
+        const { configStore } = await import('./config-store')
+        configStore.set('ai.enabled', enabled)
+
+        if (!enabled) {
+            // 停止 AI 服务器
+            await stopAiServer()
+        } else {
+            // 启动 AI 服务器
+            await startAiServer()
+        }
+
+        return { success: true }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+})
+
+// Toggle CUDA
+ipcMain.handle('config:toggleCuda', async (_event, enabled: boolean) => {
+    try {
+        const { configStore } = await import('./config-store')
+        configStore.set('ai.useCuda', enabled)
+        // Note: CUDA setting will take effect on next AI server restart
+        return { success: true, message: 'CUDA 设置将在下次启动 AI 服务时生效' }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+})
+
+// Get app version
+ipcMain.handle('config:getVersion', () => {
+    return { success: true, version: app.getVersion() }
+})
+

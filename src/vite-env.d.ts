@@ -122,5 +122,18 @@ interface Window {
             getGraph: () => Promise<{ nodes: any[]; links: any[] }>
             getSharedMedia: (id1: number, id2: number) => Promise<any[]>
         }
+        config: {
+            getAll: () => Promise<{ success: boolean; data?: any; error?: string }>
+            update: (updates: any) => Promise<{ success: boolean; error?: string }>
+            selectDatabasePath: () => Promise<{ success: boolean; path?: string; error?: string }>
+            migrateDatabase: (newPath: string, copyData: boolean) => Promise<{ success: boolean; message?: string; error?: string }>
+            getDatabaseSize: () => Promise<{ success: boolean; size?: number; error?: string }>
+            addScanDirectory: (path: string) => Promise<{ success: boolean; added?: boolean; error?: string }>
+            removeScanDirectory: (path: string) => Promise<{ success: boolean; removed?: boolean; error?: string }>
+            updateScanTimestamp: (path: string) => Promise<{ success: boolean; updated?: boolean; error?: string }>
+            toggleAI: (enabled: boolean) => Promise<{ success: boolean; error?: string }>
+            toggleCuda: (enabled: boolean) => Promise<{ success: boolean; message?: string; error?: string }>
+            getVersion: () => Promise<{ success: boolean; version?: string }>
+        }
     }
 }

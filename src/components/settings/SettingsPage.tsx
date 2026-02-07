@@ -1,264 +1,447 @@
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Globe, FolderOpen, CircuitBoard, Database, AlertCircle, Trash2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { motion } from 'framer-motion'
+import {
+    Settings, Database, FolderOpen, Cpu, Palette, Globe,
+    Info, RefreshCw, Trash2, HardDrive, Zap, Monitor
+} from 'lucide-react'
 
-// 自定义确认对话框组件
-const ConfirmDialog = ({
-    isOpen,
-    onClose,
-    onConfirm,
-    title,
-    message,
-    confirmText = 'Confirm',
-    cancelText = 'Cancel',
-    isDanger = false
-}: {
-    isOpen: boolean
-    onClose: () => void
-    onConfirm: () => void
-    title: string
-    message: string
-    confirmText?: string
-    cancelText?: string
-    isDanger?: boolean
-}) => {
-    // 强制输入确认
-    const [inputValue, setInputValue] = useState('')
-    const requiredInput = 'DELETE'
-
-    if (!isOpen) return null
-
-    return (
-        <AnimatePresence>
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-                onClick={(e) => {
-                    if (e.target === e.currentTarget) onClose()
-                }}
-            >
-                <motion.div
-                    initial={{ scale: 0.95, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.95, opacity: 0 }}
-                    className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden border border-gray-100"
-                >
-                    <div className="p-6">
-                        <div className="flex items-center gap-3 mb-4 text-red-600">
-                            <AlertCircle className="w-8 h-8" />
-                            <h3 className="text-xl font-bold">{title}</h3>
-                        </div>
-                        <p className="text-gray-600 mb-6 leading-relaxed">
-                            {message}
-                        </p>
-
-                        {isDanger && (
-                            <div className="mb-6">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Type <span className="font-mono font-bold text-red-600">{requiredInput}</span> to confirm:
-                                </label>
-                                <input
-                                    type="text"
-                                    value={inputValue}
-                                    onChange={(e) => setInputValue(e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
-                                    placeholder={requiredInput}
-                                />
-                            </div>
-                        )}
-
-                        <div className="flex justify-end gap-3">
-                            <button
-                                onClick={onClose}
-                                className="px-5 py-2 rounded-lg text-gray-600 hover:bg-gray-100 font-medium transition-colors"
-                            >
-                                {cancelText}
-                            </button>
-                            <button
-                                onClick={() => {
-                                    if (isDanger && inputValue !== requiredInput) return
-                                    onConfirm()
-                                    onClose()
-                                }}
-                                disabled={isDanger && inputValue !== requiredInput}
-                                className={`px-5 py-2 rounded-lg text-white font-medium transition-all shadow-sm ${isDanger
-                                        ? 'bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed'
-                                        : 'bg-nexus-primary hover:bg-nexus-primary/90'
-                                    }`}
-                            >
-                                {confirmText}
-                            </button>
-                        </div>
-                    </div>
-                </motion.div>
-            </motion.div>
-        </AnimatePresence>
-    )
+interface AppConfig {
+    database: {
+        path: string
+        autoBackup: boolean
+    }
+    scanDirectories: Array<{
+        path: string
+        addedAt: string
+        lastScan?: string
+    }>
+    ai: {
+        enabled: boolean
+        useCuda: boolean
+        autoAnalyze: boolean
+    }
+    ui: {
+        sidebarCollapsed: boolean
+        gridSize: 'small' | 'medium' | 'large'
+        theme: 'light' | 'dark' | 'auto'
+        language: 'zh-CN' | 'en-US'
+    }
+    version: string
 }
 
 export function SettingsPage() {
-    const { t, i18n } = useTranslation()
-    const [isClearDbDialogOpen, setClearDbDialogOpen] = useState(false)
-    const [isClearing, setIsClearing] = useState(false)
+    const [config, setConfig] = useState<AppConfig | null>(null)
+    const [dbSize, setDbSize] = useState<number>(0)
+    const [appVersion, setAppVersion] = useState<string>('')
+    const [loading, setLoading] = useState(true)
+    const [showMigrationDialog, setShowMigrationDialog] = useState(false)
+    const [newDbPath, setNewDbPath] = useState('')
+    const [copyData, setCopyData] = useState(true)
 
-    // 临时的语言切换函数
-    const changeLanguage = (lng: string) => {
-        i18n.changeLanguage(lng)
-    }
+    // Load configuration
+    useEffect(() => {
+        loadConfig()
+    }, [])
 
-    // 执行清理
-    const handleClearDatabase = async () => {
-        setIsClearing(true)
+    const loadConfig = async () => {
         try {
-            const result = await window.electronAPI.cleanup.clearDatabase()
-            if (result.success) {
-                // 刷新页面或提示成功
-                alert('Database cleared successfully. The application will act as a fresh install.')
-                // 可以在这里触发全局状态更新
-            } else {
-                alert(`Failed to clear database: ${result.error}`)
+            const result = await window.electronAPI.config.getAll()
+            if (result.success && result.data) {
+                setConfig(result.data)
+            }
+
+            const sizeResult = await window.electronAPI.config.getDatabaseSize()
+            if (sizeResult.success && sizeResult.size !== undefined) {
+                setDbSize(sizeResult.size)
+            }
+
+            const versionResult = await window.electronAPI.config.getVersion()
+            if (versionResult.success && versionResult.version) {
+                setAppVersion(versionResult.version)
             }
         } catch (error) {
-            console.error(error)
-            alert('An unexpected error occurred.')
+            console.error('Failed to load config:', error)
         } finally {
-            setIsClearing(false)
+            setLoading(false)
         }
     }
 
-    return (
-        <div className="flex-1 h-full overflow-y-auto bg-gray-50/50">
-            {/* 确认对话框 */}
-            {isClearDbDialogOpen && (
-                <ConfirmDialog
-                    isOpen={isClearDbDialogOpen}
-                    onClose={() => setClearDbDialogOpen(false)}
-                    onConfirm={handleClearDatabase}
-                    title="Clear All Data?"
-                    message="This action creates a disaster. It will PERMANENTLY DELETE all imported files records, tags, AI analysis results, and faces. The actual files on your disk will NOT be deleted, but Nexus Media will lose all memory of them. This action CANNOT be undone."
-                    confirmText="DELETE EVERYTHING"
-                    isDanger={true}
-                />
-            )}
+    const formatBytes = (bytes: number): string => {
+        if (bytes === 0) return '0 B'
+        const k = 1024
+        const sizes = ['B', 'KB', 'MB', 'GB']
+        const i = Math.floor(Math.log(bytes) / Math.log(k))
+        return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`
+    }
 
-            <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="max-w-4xl mx-auto p-8 space-y-8"
-            >
-                {/* 标题 */}
-                <div>
-                    <h1 className="text-3xl font-display font-bold text-nexus-text-primary mb-2">
-                        {t('settings.title')}
-                    </h1>
-                    <p className="text-nexus-text-secondary">
-                        Manage your preferences and configurations.
-                    </p>
+    const formatDate = (dateStr: string): string => {
+        return new Date(dateStr).toLocaleString('zh-CN')
+    }
+
+    const handleDatabasePathChange = async () => {
+        const result = await window.electronAPI.config.selectDatabasePath()
+        if (result.success && result.path) {
+            setNewDbPath(result.path)
+            setShowMigrationDialog(true)
+        }
+    }
+
+    const handleMigrateDatabase = async () => {
+        if (!newDbPath) return
+
+        try {
+            const result = await window.electronAPI.config.migrateDatabase(newDbPath, copyData)
+            if (result.success) {
+                alert(result.message || '数据库迁移成功！')
+                setShowMigrationDialog(false)
+                loadConfig()
+            } else {
+                alert('迁移失败: ' + result.error)
+            }
+        } catch (error: any) {
+            alert('迁移失败: ' + error.message)
+        }
+    }
+
+    const handleRemoveDirectory = async (path: string) => {
+        if (!confirm(`确定要移除扫描目录 "${path}" 吗？`)) return
+
+        const result = await window.electronAPI.config.removeScanDirectory(path)
+        if (result.success) {
+            loadConfig()
+        }
+    }
+
+    const handleRescanDirectory = async (path: string) => {
+        // Trigger rescan
+        const result = await window.electronAPI.scan.folders([path])
+        if (result.success) {
+            await window.electronAPI.config.updateScanTimestamp(path)
+            loadConfig()
+        }
+    }
+
+    const handleToggleAI = async (enabled: boolean) => {
+        const result = await window.electronAPI.config.toggleAI(enabled)
+        if (result.success) {
+            loadConfig()
+        } else {
+            alert('AI 切换失败: ' + result.error)
+        }
+    }
+
+    const handleToggleCuda = async (enabled: boolean) => {
+        const result = await window.electronAPI.config.toggleCuda(enabled)
+        if (result.success) {
+            if (result.message) alert(result.message)
+            loadConfig()
+        }
+    }
+
+    const handleUpdateUI = async (updates: Partial<AppConfig['ui']>) => {
+        if (!config) return
+        const result = await window.electronAPI.config.update({
+            ui: { ...config.ui, ...updates }
+        })
+        if (result.success) {
+            loadConfig()
+        }
+    }
+
+    if (loading || !config) {
+        return (
+            <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                    <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-neon-cyan" />
+                    <p className="text-nexus-text-muted">加载配置中...</p>
+                </div>
+            </div>
+        )
+    }
+
+    return (
+        <div className="h-full overflow-y-auto bg-nexus-bg">
+            <div className="max-w-4xl mx-auto p-8">
+                {/* Header */}
+                <div className="mb-8">
+                    <div className="flex items-center gap-3 mb-2">
+                        <Settings className="w-8 h-8 text-neon-cyan" />
+                        <h1 className="text-3xl font-bold text-nexus-text">设置</h1>
+                    </div>
+                    <p className="text-nexus-text-muted">管理应用配置和偏好设置</p>
                 </div>
 
-                {/* 1. General / Language */}
-                <section className="glass-panel p-6 rounded-2xl border border-white/60 shadow-sm hover:shadow-md transition-shadow duration-300">
-                    <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-                        <Globe className="w-5 h-5 text-neon-cyan" />
-                        <h2 className="text-lg font-semibold text-nexus-text-primary">
-                            {t('settings.general.title')}
-                        </h2>
-                    </div>
-
+                {/* Database Settings */}
+                <Section icon={<Database />} title="数据库设置">
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-nexus-text-secondary mb-3">
-                                {t('settings.general.language')}
-                            </label>
-                            <div className="flex flex-wrap gap-3">
-                                {[
-                                    { code: 'en', label: 'English' },
-                                    { code: 'zh', label: '简体中文' },
-                                    { code: 'ja', label: '日本語' }
-                                ].map((lang) => (
+                            <label className="text-sm text-nexus-text-muted">当前路径</label>
+                            <div className="mt-1 p-3 bg-nexus-bg-secondary rounded-lg font-mono text-sm text-nexus-text break-all">
+                                {config.database.path}
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-sm text-nexus-text-muted">数据库大小</label>
+                            <div className="mt-1 text-nexus-text font-medium">
+                                {formatBytes(dbSize)}
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleDatabasePathChange}
+                            className="px-4 py-2 bg-neon-cyan text-white rounded-lg hover:bg-neon-cyan/80 transition-colors flex items-center gap-2"
+                        >
+                            <HardDrive className="w-4 h-4" />
+                            更改数据库位置
+                        </button>
+                    </div>
+                </Section>
+
+                {/* Scan Directories */}
+                <Section icon={<FolderOpen />} title="扫描目录">
+                    <div className="space-y-3">
+                        {config.scanDirectories.length === 0 ? (
+                            <p className="text-nexus-text-muted text-sm">暂无扫描目录</p>
+                        ) : (
+                            config.scanDirectories.map((dir) => (
+                                <div
+                                    key={dir.path}
+                                    className="p-4 bg-nexus-bg-secondary rounded-lg flex items-center justify-between"
+                                >
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-nexus-text font-medium truncate">{dir.path}</p>
+                                        <p className="text-xs text-nexus-text-muted mt-1">
+                                            添加于: {formatDate(dir.addedAt)}
+                                            {dir.lastScan && ` • 上次扫描: ${formatDate(dir.lastScan)}`}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2 ml-4">
+                                        <button
+                                            onClick={() => handleRescanDirectory(dir.path)}
+                                            className="p-2 hover:bg-nexus-bg-tertiary rounded-lg transition-colors"
+                                            title="重新扫描"
+                                        >
+                                            <RefreshCw className="w-4 h-4 text-neon-cyan" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleRemoveDirectory(dir.path)}
+                                            className="p-2 hover:bg-red-500/10 rounded-lg transition-colors"
+                                            title="移除"
+                                        >
+                                            <Trash2 className="w-4 h-4 text-red-500" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </Section>
+
+                {/* AI Configuration */}
+                <Section icon={<Cpu />} title="AI 配置">
+                    <div className="space-y-4">
+                        <Toggle
+                            label="启用 AI 功能"
+                            description="自动分析图片并生成标签"
+                            checked={config.ai.enabled}
+                            onChange={handleToggleAI}
+                        />
+                        <Toggle
+                            label="使用 CUDA 加速"
+                            description="需要 NVIDIA GPU 支持，重启 AI 服务后生效"
+                            checked={config.ai.useCuda}
+                            onChange={handleToggleCuda}
+                            disabled={!config.ai.enabled}
+                        />
+                        <Toggle
+                            label="自动分析新导入"
+                            description="扫描时自动分析新添加的图片"
+                            checked={config.ai.autoAnalyze}
+                            onChange={(enabled) => {
+                                window.electronAPI.config.update({
+                                    ai: { ...config.ai, autoAnalyze: enabled }
+                                })
+                                loadConfig()
+                            }}
+                            disabled={!config.ai.enabled}
+                        />
+                    </div>
+                </Section>
+
+                {/* UI Preferences */}
+                <Section icon={<Palette />} title="界面偏好">
+                    <div className="space-y-4">
+                        <div>
+                            <label className="text-sm text-nexus-text-muted mb-2 block">网格大小</label>
+                            <div className="flex gap-2">
+                                {(['small', 'medium', 'large'] as const).map((size) => (
                                     <button
-                                        key={lang.code}
-                                        onClick={() => changeLanguage(lang.code)}
-                                        className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-200 border ${i18n.language.startsWith(lang.code)
-                                            ? 'bg-neon-cyan text-white border-transparent shadow-lg shadow-neon-cyan/20'
-                                            : 'bg-white text-nexus-text-secondary border-gray-200 hover:border-neon-cyan/50 hover:bg-gray-50'
+                                        key={size}
+                                        onClick={() => handleUpdateUI({ gridSize: size })}
+                                        className={`px-4 py-2 rounded-lg transition-colors ${config.ui.gridSize === size
+                                                ? 'bg-neon-cyan text-white'
+                                                : 'bg-nexus-bg-secondary text-nexus-text hover:bg-nexus-bg-tertiary'
                                             }`}
                                     >
-                                        {lang.label}
+                                        {size === 'small' ? '小' : size === 'medium' ? '中' : '大'}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="text-sm text-nexus-text-muted mb-2 block">主题</label>
+                            <div className="flex gap-2">
+                                {(['light', 'dark', 'auto'] as const).map((theme) => (
+                                    <button
+                                        key={theme}
+                                        onClick={() => handleUpdateUI({ theme })}
+                                        className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${config.ui.theme === theme
+                                                ? 'bg-neon-cyan text-white'
+                                                : 'bg-nexus-bg-secondary text-nexus-text hover:bg-nexus-bg-tertiary'
+                                            }`}
+                                    >
+                                        <Monitor className="w-4 h-4" />
+                                        {theme === 'light' ? '浅色' : theme === 'dark' ? '深色' : '自动'}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="text-sm text-nexus-text-muted mb-2 block">语言</label>
+                            <div className="flex gap-2">
+                                {(['zh-CN', 'en-US'] as const).map((lang) => (
+                                    <button
+                                        key={lang}
+                                        onClick={() => handleUpdateUI({ language: lang })}
+                                        className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${config.ui.language === lang
+                                                ? 'bg-neon-cyan text-white'
+                                                : 'bg-nexus-bg-secondary text-nexus-text hover:bg-nexus-bg-tertiary'
+                                            }`}
+                                    >
+                                        <Globe className="w-4 h-4" />
+                                        {lang === 'zh-CN' ? '简体中文' : 'English'}
                                     </button>
                                 ))}
                             </div>
                         </div>
                     </div>
-                </section>
+                </Section>
 
-                {/* 2. Library (Coming Soon) */}
-                <section className="glass-panel p-6 rounded-2xl border border-white/60 shadow-sm opacity-80">
-                    <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-                        <FolderOpen className="w-5 h-5 text-neon-purple" />
-                        <h2 className="text-lg font-semibold text-nexus-text-primary">
-                            {t('settings.library.title')}
-                        </h2>
-                    </div>
+                {/* About */}
+                <Section icon={<Info />} title="关于">
                     <div className="space-y-4">
-                        <div className="p-4 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-center">
-                            <p className="text-nexus-text-muted text-sm">
-                                {t('settings.library.watch_paths')} configuration coming soon.
-                            </p>
-                        </div>
-                    </div>
-                </section>
-
-                {/* 3. Database & Storage */}
-                <section className="glass-panel p-6 rounded-2xl border border-white/60 shadow-sm hover:shadow-md transition-shadow duration-300">
-                    <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-                        <Database className="w-5 h-5 text-red-500" />
-                        <h2 className="text-lg font-semibold text-nexus-text-primary">
-                            Database Management
-                        </h2>
-                    </div>
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between p-4 bg-red-50/50 rounded-xl border border-red-100">
-                            <div>
-                                <h3 className="font-medium text-red-900 mb-1">Danger Zone: Clear Database</h3>
-                                <p className="text-sm text-red-700/80 max-w-lg">
-                                    Clear all records, tags, and AI data. This does not delete your actual files, but resets the application state completely.
-                                </p>
+                        <div>
+                            <label className="text-sm text-nexus-text-muted">版本</label>
+                            <div className="mt-1 text-nexus-text font-medium">
+                                Nexus Media v{appVersion || config.version}
                             </div>
-                            <button
-                                onClick={() => setClearDbDialogOpen(true)}
-                                disabled={isClearing}
-                                className="flex items-center gap-2 px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 hover:border-red-300 transition-all font-medium shadow-sm disabled:opacity-50"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                                {isClearing ? 'Clearing...' : 'Clear Database'}
-                            </button>
                         </div>
-                    </div>
-                </section>
-
-                {/* 4. AI (Coming Soon) */}
-                <section className="glass-panel p-6 rounded-2xl border border-white/60 shadow-sm opacity-80">
-                    <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-                        <CircuitBoard className="w-5 h-5 text-neon-green" />
-                        <h2 className="text-lg font-semibold text-nexus-text-primary">
-                            {t('settings.ai.title')}
-                        </h2>
-                    </div>
-                    <div className="space-y-4">
-                        <div className="p-4 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-center">
-                            <p className="text-nexus-text-muted text-sm">
-                                {t('settings.ai.python_path')} configuration coming soon.
-                            </p>
+                        <div>
+                            <label className="text-sm text-nexus-text-muted">开发团队</label>
+                            <div className="mt-1 text-nexus-text">Nexus Team</div>
                         </div>
+                        <button
+                            onClick={() => alert('检查更新功能即将推出')}
+                            className="px-4 py-2 bg-nexus-bg-secondary text-nexus-text rounded-lg hover:bg-nexus-bg-tertiary transition-colors flex items-center gap-2"
+                        >
+                            <Zap className="w-4 h-4" />
+                            检查更新
+                        </button>
                     </div>
-                </section>
+                </Section>
+            </div>
 
-            </motion.div>
+            {/* Migration Dialog */}
+            {showMigrationDialog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <motion.div
+                        initial={{ scale: 0.95, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="bg-nexus-bg-secondary rounded-2xl shadow-xl max-w-md w-full p-6 border border-nexus-border"
+                    >
+                        <h3 className="text-xl font-bold text-nexus-text mb-4">迁移数据库</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-sm text-nexus-text-muted">新路径</label>
+                                <div className="mt-1 p-3 bg-nexus-bg rounded-lg font-mono text-sm text-nexus-text break-all">
+                                    {newDbPath}
+                                </div>
+                            </div>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={copyData}
+                                    onChange={(e) => setCopyData(e.target.checked)}
+                                    className="w-4 h-4"
+                                />
+                                <span className="text-nexus-text">复制现有数据到新位置</span>
+                            </label>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleMigrateDatabase}
+                                    className="flex-1 px-4 py-2 bg-neon-cyan text-white rounded-lg hover:bg-neon-cyan/80 transition-colors"
+                                >
+                                    确认迁移
+                                </button>
+                                <button
+                                    onClick={() => setShowMigrationDialog(false)}
+                                    className="flex-1 px-4 py-2 bg-nexus-bg text-nexus-text rounded-lg hover:bg-nexus-bg-tertiary transition-colors"
+                                >
+                                    取消
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+        </div>
+    )
+}
+
+// Helper Components
+function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+    return (
+        <div className="mb-8 p-6 bg-nexus-bg-secondary rounded-xl border border-nexus-border">
+            <div className="flex items-center gap-3 mb-4">
+                <div className="text-neon-cyan">{icon}</div>
+                <h2 className="text-xl font-bold text-nexus-text">{title}</h2>
+            </div>
+            {children}
+        </div>
+    )
+}
+
+function Toggle({
+    label,
+    description,
+    checked,
+    onChange,
+    disabled = false
+}: {
+    label: string
+    description?: string
+    checked: boolean
+    onChange: (checked: boolean) => void
+    disabled?: boolean
+}) {
+    return (
+        <div className={`flex items-center justify-between ${disabled ? 'opacity-50' : ''}`}>
+            <div className="flex-1">
+                <p className="text-nexus-text font-medium">{label}</p>
+                {description && <p className="text-sm text-nexus-text-muted mt-1">{description}</p>}
+            </div>
+            <button
+                onClick={() => !disabled && onChange(!checked)}
+                disabled={disabled}
+                className={`relative w-12 h-6 rounded-full transition-colors ${checked ? 'bg-neon-cyan' : 'bg-nexus-bg-tertiary'
+                    } ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+                <div
+                    className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${checked ? 'translate-x-6' : ''
+                        }`}
+                />
+            </button>
         </div>
     )
 }

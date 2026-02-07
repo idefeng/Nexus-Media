@@ -58,12 +58,14 @@ let db: Database.Database
  * 初始化数据库
  */
 export async function initDatabase(): Promise<void> {
-    const userDataPath = app.getPath('userData')
-    const dbPath = path.join(userDataPath, 'nexus_media.db')
+    // 动态导入 config-store 以避免在 app ready 之前初始化
+    const { configStore } = await import('./config-store')
+    const dbPath = configStore.get('database.path')
 
     // 确保目录存在
-    if (!fs.existsSync(userDataPath)) {
-        fs.mkdirSync(userDataPath, { recursive: true })
+    const dbDir = path.dirname(dbPath)
+    if (!fs.existsSync(dbDir)) {
+        fs.mkdirSync(dbDir, { recursive: true })
     }
 
     db = new Database(dbPath)

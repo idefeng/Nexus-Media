@@ -1,44 +1,61 @@
 appId: com.nexus.media
 productName: Nexus Media
+copyright: Copyright © 2026 Nexus Team
+
 directories:
   output: release
   buildResources: build
+
 files:
-  - filter:
-      - "**/*"
-      - "!**/*.ts"
-      - "!*.map"
-      - "!package-lock.json"
-      - "!pnpm-lock.yaml"
+  - "**/*"
+  - "!**/*.ts"
+  - "!*.map"
+  - "!package-lock.yaml"
+  - "!pnpm-lock.yaml"
+  - "!src"
+  - "!docs"
+  - "!.git"
+  - "!.gemini"
   - from: dist
     to: .
-    filter:
-      - "**/*"
   - from: dist-electron
     to: .
-    filter:
-      - "**/*"
 
 extraResources:
-  - from: resources/bin
-    to: bin
+  - from: ai_engine
+    to: ai_engine
     filter:
       - "**/*"
+      - "!**/__pycache__"
+      - "!**/*.pyc"
+  - from: database
+    to: database
 
 win:
-  target: nsis
-  icon: src/assets/logo.png
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.png
   artifactName: "${productName}-Setup-${version}.${ext}"
+  requestedExecutionLevel: asInvoker
 
 nsis:
   oneClick: false
-  perMachine: true
+  perMachine: false
   allowToChangeInstallationDirectory: true
-  createDesktopShortcut: true
+  allowElevation: true
+  createDesktopShortcut: always
   createStartMenuShortcut: true
   shortcutName: "Nexus Media"
+  installerIcon: build/icon.png
+  uninstallerIcon: build/icon.png
+  installerHeaderIcon: build/icon.png
+  deleteAppDataOnUninstall: false
+  runAfterFinish: true
 
 asarUnpack:
-  - "node_modules/better-sqlite3"
-  - "node_modules/sharp"
-  - "node_modules/ffmpeg-static"
+  - "node_modules/better-sqlite3/**/*"
+  - "node_modules/sharp/**/*"
+  - "node_modules/ffmpeg-static/**/*"
+  - "ai_engine/**/*"

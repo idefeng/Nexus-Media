@@ -134,6 +134,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
         updateName: (id: number, name: string) => ipcRenderer.invoke('people:updateName', id, name),
         getGraph: () => ipcRenderer.invoke('people:getGraph'),
         getSharedMedia: (personId1: number, personId2: number) => ipcRenderer.invoke('people:getSharedMedia', personId1, personId2)
+    },
+
+    // 配置管理
+    config: {
+        getAll: () => ipcRenderer.invoke('config:getAll'),
+        update: (updates: any) => ipcRenderer.invoke('config:update', updates),
+        selectDatabasePath: () => ipcRenderer.invoke('config:selectDatabasePath'),
+        migrateDatabase: (newPath: string, copyData: boolean) => ipcRenderer.invoke('config:migrateDatabase', newPath, copyData),
+        getDatabaseSize: () => ipcRenderer.invoke('config:getDatabaseSize'),
+        addScanDirectory: (path: string) => ipcRenderer.invoke('config:addScanDirectory', path),
+        removeScanDirectory: (path: string) => ipcRenderer.invoke('config:removeScanDirectory', path),
+        updateScanTimestamp: (path: string) => ipcRenderer.invoke('config:updateScanTimestamp', path),
+        toggleAI: (enabled: boolean) => ipcRenderer.invoke('config:toggleAI', enabled),
+        toggleCuda: (enabled: boolean) => ipcRenderer.invoke('config:toggleCuda', enabled),
+        getVersion: () => ipcRenderer.invoke('config:getVersion')
     }
 })
 
