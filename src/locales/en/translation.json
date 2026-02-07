@@ -1,0 +1,67 @@
+{
+    "sidebar": {
+        "dashboard": "Dashboard",
+        "all_media": "All Media",
+        "recently_added": "Recently Added",
+        "favorites": "Favorites",
+        "images": "Images",
+        "videos": "Videos",
+        "settings": "Settings",
+        "ai_tag_cloud": "AI Tag Cloud"
+    },
+    "topbar": {
+        "search_placeholder": "Search media, tags, or commands...",
+        "semantic_placeholder": "Describe what you're looking for...",
+        "scanning": "Scanning...",
+        "add_folder": "Add Folder"
+    },
+    "dashboard": {
+        "welcome_back": "Welcome Back",
+        "your_vault_ready": "Your personal media vault is ready.",
+        "new_items_this_week": "You have {{count}} new items this week.",
+        "browse_library": "Browse Library",
+        "view_recent": "View Recent",
+        "total_assets": "Total Assets",
+        "favorites_count": "Favorites",
+        "images_count": "Images",
+        "videos_count": "Videos",
+        "recent_uploads": "Recent Uploads",
+        "view_all": "View All",
+        "ai_insights": "AI Insights",
+        "ai_insights_desc": "Optimize your library with smart tagging and duplicate detection."
+    },
+    "settings": {
+        "title": "Application Settings",
+        "general": {
+            "title": "General",
+            "language": "Language",
+            "theme": "Theme"
+        },
+        "library": {
+            "title": "Library Management",
+            "watch_paths": "Monitored Folders",
+            "add_path": "Add New Folder",
+            "remove": "Remove",
+            "scanning_status": "Scanning Status"
+        },
+        "ai": {
+            "title": "AI Configuration",
+            "python_path": "Python Host Path",
+            "model_path": "CLIP Model Path",
+            "test_connection": "Test Connection"
+        },
+        "storage": {
+            "title": "Storage Configuration",
+            "db_path": "Database Path",
+            "thumbnail_path": "Thumbnail Cache Path",
+            "restart_hint": "Restart required to take effect",
+            "clear_cache": "Clear Cache"
+        }
+    },
+    "status_bar": {
+        "ready": "Ready",
+        "processing": "AI Processing: {{count}} items remaining",
+        "scanning": "Scanning library...",
+        "total_items": "{{count}} items"
+    }
+}

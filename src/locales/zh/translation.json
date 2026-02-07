@@ -1,0 +1,67 @@
+{
+    "sidebar": {
+        "dashboard": "仪表盘",
+        "all_media": "所有媒体",
+        "recently_added": "最近添加",
+        "favorites": "收藏夹",
+        "images": "图片",
+        "videos": "视频",
+        "settings": "设置",
+        "ai_tag_cloud": "AI 标签云"
+    },
+    "topbar": {
+        "search_placeholder": "搜索媒体、标签或命令...",
+        "semantic_placeholder": "描述您想查找的内容...",
+        "scanning": "扫描中...",
+        "add_folder": "添加文件夹"
+    },
+    "dashboard": {
+        "welcome_back": "欢迎回来",
+        "your_vault_ready": "您的个人媒体库已就绪。",
+        "new_items_this_week": "本周已新增 {{count}} 个项目。",
+        "browse_library": "浏览图库",
+        "view_recent": "查看最新",
+        "total_assets": "媒体总数",
+        "favorites_count": "收藏",
+        "images_count": "图片",
+        "videos_count": "视频",
+        "recent_uploads": "最近上传",
+        "view_all": "查看全部",
+        "ai_insights": "AI 洞察",
+        "ai_insights_desc": "通过智能标签和重复检测优化您的媒体库。"
+    },
+    "settings": {
+        "title": "应用设置",
+        "general": {
+            "title": "常规",
+            "language": "语言",
+            "theme": "主题"
+        },
+        "library": {
+            "title": "图库管理",
+            "watch_paths": "监控文件夹",
+            "add_path": "添加新路径",
+            "remove": "移除",
+            "scanning_status": "扫描状态"
+        },
+        "ai": {
+            "title": "AI 配置",
+            "python_path": "Python Host 路径",
+            "model_path": "CLIP 模型路径",
+            "test_connection": "测试连接"
+        },
+        "storage": {
+            "title": "存储配置",
+            "db_path": "数据库文件路径",
+            "thumbnail_path": "缩略图缓存路径",
+            "restart_hint": "修改后需要重启生效",
+            "clear_cache": "清除缓存"
+        }
+    },
+    "status_bar": {
+        "ready": "就绪",
+        "processing": "AI 处理中: 还剩 {{count}} 项",
+        "scanning": "正在扫描图库...",
+        "total_items": "共 {{count}} 项"
+    }
+}

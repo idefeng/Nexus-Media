@@ -1,0 +1,44 @@
+appId: com.nexus.media
+productName: Nexus Media
+directories:
+  output: release
+  buildResources: build
+files:
+  - filter:
+      - "**/*"
+      - "!**/*.ts"
+      - "!*.map"
+      - "!package-lock.json"
+      - "!pnpm-lock.yaml"
+  - from: dist
+    to: .
+    filter:
+      - "**/*"
+  - from: dist-electron
+    to: .
+    filter:
+      - "**/*"
+
+extraResources:
+  - from: resources/bin
+    to: bin
+    filter:
+      - "**/*"
+
+win:
+  target: nsis
+  icon: src/assets/logo.png
+  artifactName: "${productName}-Setup-${version}.${ext}"
+
+nsis:
+  oneClick: false
+  perMachine: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: "Nexus Media"
+
+asarUnpack:
+  - "node_modules/better-sqlite3"
+  - "node_modules/sharp"
+  - "node_modules/ffmpeg-static"

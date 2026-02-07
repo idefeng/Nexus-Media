@@ -5,8 +5,9 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { Dashboard } from './components/dashboard/Dashboard'
-import { TopBar, Sidebar } from './components/layout'
+import { TopBar, Sidebar, StatusBar } from './components/layout'
 import { MediaGrid } from './components/media'
+import { SettingsPage } from './components/settings/SettingsPage'
 import { DetailModal } from './components/preview'
 import { recordToMediaItem } from './types'
 import { type FilterState, defaultFilterState } from './components/layout/FilterPanel'
@@ -480,6 +481,8 @@ function App() {
                             onNavigate={setCurrentView}
                             onItemClick={handleItemClick}
                         />
+                    ) : currentView === 'settings' ? (
+                        <SettingsPage />
                     ) : (
                         <MediaGrid
                             items={filteredItems}
@@ -496,6 +499,14 @@ function App() {
                     )}
                 </main>
             </div>
+
+            {/* 底部状态栏 */}
+            <StatusBar
+                scanStatus={scanStatus}
+                isScanning={isScanning}
+                dbCount={dbMediaCount}
+                aiQueueCount={0}
+            />
 
             {/* 详情预览 Modal */}
             <DetailModal

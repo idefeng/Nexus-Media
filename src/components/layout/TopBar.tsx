@@ -3,6 +3,7 @@
  * 包含窗口控制按钮、搜索框（支持语义搜索）、添加文件夹按钮和扫描状态
  */
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
     Search,
@@ -48,6 +49,7 @@ export function TopBar({
     onSemanticResults,
     isSemanticSearchEnabled = true
 }: TopBarProps) {
+    const { t } = useTranslation()
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [isSemanticMode, setIsSemanticMode] = useState(false)
     const [isSearching, setIsSearching] = useState(false)
@@ -185,7 +187,7 @@ export function TopBar({
                     >
                         <Loader2 className="w-4 h-4 text-neon-cyan animate-spin" />
                         <span className="text-sm text-neon-cyan font-medium">
-                            {scanStatus || 'Updating Library...'}
+                            {scanStatus || t('topbar.scanning')}
                         </span>
                     </motion.div>
                 ) : (
@@ -207,7 +209,7 @@ export function TopBar({
 
                             <input
                                 type="text"
-                                placeholder={isSemanticMode ? "Describe what you're looking for..." : "Search media, tags, or commands..."}
+                                placeholder={isSemanticMode ? t('topbar.semantic_placeholder') : t('topbar.search_placeholder')}
                                 value={searchQuery}
                                 onChange={(e) => onSearchChange(e.target.value)}
                                 className={`w-full bg-nexus-bg-tertiary border border-transparent rounded-xl py-2.5 pl-11 pr-32 text-sm text-nexus-text-primary placeholder-nexus-text-muted focus:outline-none focus:border-neon-electric/30 focus:bg-white focus:shadow-clean transition-all duration-300 shadow-sm`}
@@ -290,7 +292,7 @@ export function TopBar({
                         <FolderPlus className="w-4 h-4" />
                     )}
                     <span className="hidden sm:inline">
-                        {isScanning ? '扫描中...' : '添加文件夹'}
+                        {isScanning ? t('topbar.scanning') : t('topbar.add_folder')}
                     </span>
                 </motion.button>
 

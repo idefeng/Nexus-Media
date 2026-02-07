@@ -102,7 +102,7 @@ export interface TagStat {
 /**
  * 视图类型
  */
-export type ViewType = 'dashboard' | 'all' | 'recent' | 'favorites'
+export type ViewType = 'dashboard' | 'all' | 'recent' | 'favorites' | 'settings'
 
 /**
  * 扫描进度信息

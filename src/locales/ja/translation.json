@@ -1,0 +1,67 @@
+{
+    "sidebar": {
+        "dashboard": "ダッシュボード",
+        "all_media": "すべてのメディア",
+        "recently_added": "最近追加された項目",
+        "favorites": "お気に入り",
+        "images": "画像",
+        "videos": "動画",
+        "settings": "設定",
+        "ai_tag_cloud": "AI タグクラウド"
+    },
+    "topbar": {
+        "search_placeholder": "メディア、タグ、コマンドを検索...",
+        "semantic_placeholder": "探しているものを説明してください...",
+        "scanning": "スキャン中...",
+        "add_folder": "フォルダを追加"
+    },
+    "dashboard": {
+        "welcome_back": "お帰りなさい",
+        "your_vault_ready": "パーソナルメディア保管庫の準備ができました。",
+        "new_items_this_week": "今週は {{count}} 件の新しいアイテムがあります。",
+        "browse_library": "ライブラリを見る",
+        "view_recent": "最新を表示",
+        "total_assets": "総アセット数",
+        "favorites_count": "お気に入り",
+        "images_count": "画像数",
+        "videos_count": "動画数",
+        "recent_uploads": "最近のアップロード",
+        "view_all": "すべて表示",
+        "ai_insights": "AI インサイト",
+        "ai_insights_desc": "スマートタグ付けと重複検出でライブラリを最適化します。"
+    },
+    "settings": {
+        "title": "アプリケーション設定",
+        "general": {
+            "title": "一般",
+            "language": "言語",
+            "theme": "テーマ"
+        },
+        "library": {
+            "title": "ライブラリ管理",
+            "watch_paths": "監視フォルダ",
+            "add_path": "新しいパスを追加",
+            "remove": "削除",
+            "scanning_status": "スキャン状態"
+        },
+        "ai": {
+            "title": "AI 設定",
+            "python_path": "Python ホスト パス",
+            "model_path": "CLIP モデル パス",
+            "test_connection": "接続テスト"
+        },
+        "storage": {
+            "title": "ストレージ設定",
+            "db_path": "データベース パス",
+            "thumbnail_path": "サムネイル キャッシュ パス",
+            "restart_hint": "変更を適用するには再起動が必要です",
+            "clear_cache": "キャッシュをクリア"
+        }
+    },
+    "status_bar": {
+        "ready": "準備完了",
+        "processing": "AI 処理中: 残り {{count}} 件",
+        "scanning": "ライブラリをスキャン中...",
+        "total_items": "合計 {{count}} 件"
+    }
+}

@@ -2,6 +2,7 @@
  * 侧边栏组件
  * 包含导航菜单、标签云和高级筛选面板
  */
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import {
     LayoutGrid,
@@ -10,7 +11,8 @@ import {
     Heart,
     Tags,
     Image,
-    Video
+    Video,
+    Settings
 } from 'lucide-react'
 import { FilterPanel, type FilterState, defaultFilterState } from './FilterPanel'
 import type { ViewType, TagStat } from '../../types'
@@ -36,10 +38,10 @@ interface SidebarProps {
 
 // 导航菜单配置
 const navItems = [
-    { id: 'dashboard' as ViewType, label: '仪表盘', icon: LayoutDashboard },
-    { id: 'all' as ViewType, label: '所有媒体', icon: LayoutGrid },
-    { id: 'recent' as ViewType, label: '最近添加', icon: Clock },
-    { id: 'favorites' as ViewType, label: '收藏夹', icon: Heart }
+    { id: 'dashboard' as ViewType, label: 'sidebar.dashboard', icon: LayoutDashboard },
+    { id: 'all' as ViewType, label: 'sidebar.all_media', icon: LayoutGrid },
+    { id: 'recent' as ViewType, label: 'sidebar.recently_added', icon: Clock },
+    { id: 'favorites' as ViewType, label: 'sidebar.favorites', icon: Heart }
 ]
 
 export function Sidebar({
@@ -53,6 +55,8 @@ export function Sidebar({
     onFiltersChange,
     availableTags = []
 }: SidebarProps) {
+    const { t } = useTranslation()
+
     const handleFiltersChange = (newFilters: FilterState) => {
         onFiltersChange?.(newFilters)
     }
@@ -71,14 +75,15 @@ export function Sidebar({
             {/* 导航菜单 */}
             <nav className="p-4 space-y-1">
                 <p className="text-xs font-medium text-nexus-text-muted uppercase tracking-wider mb-3 px-4">
-                    浏览
+                    {t('sidebar.browse')}
                 </p>
                 {navItems.map((item, index) => {
                     const Icon = item.icon
                     const isActive = currentView === item.id
                     const count = item.id === 'all' ? mediaCount.all
                         : item.id === 'recent' ? mediaCount.recent
-                            : mediaCount.favorites
+                            : item.id === 'favorites' ? mediaCount.favorites
+                                : undefined
 
                     return (
                         <motion.button
@@ -93,13 +98,15 @@ export function Sidebar({
                             className={`nav-item w-full ${isActive ? 'active' : ''}`}
                         >
                             <Icon className={`w-5 h-5 ${isActive ? 'text-neon-cyan' : ''}`} />
-                            <span className="flex-1 text-left">{item.label}</span>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${isActive
-                                ? 'bg-neon-cyan/10 text-neon-cyan'
-                                : 'bg-gray-100 text-nexus-text-muted'
-                                }`}>
-                                {count}
-                            </span>
+                            <span className="flex-1 text-left">{t(item.label)}</span>
+                            {count !== undefined && (
+                                <span className={`text-xs px-2 py-0.5 rounded-full ${isActive
+                                    ? 'bg-neon-cyan/10 text-neon-cyan'
+                                    : 'bg-gray-100 text-nexus-text-muted'
+                                    }`}>
+                                    {count}
+                                </span>
+                            )}
                         </motion.button>
                     )
                 })}
@@ -108,17 +115,17 @@ export function Sidebar({
             {/* 媒体类型统计 */}
             <div className="px-4 py-3 border-t border-gray-100">
                 <p className="text-xs font-medium text-nexus-text-muted uppercase tracking-wider mb-3 px-4">
-                    类型
+                    {t('sidebar.types')}
                 </p>
                 <div className="space-y-1">
                     <div className="flex items-center gap-3 px-4 py-2 text-nexus-text-secondary">
                         <Image className="w-4 h-4 text-neon-green" />
-                        <span className="flex-1">图片</span>
+                        <span className="flex-1">{t('sidebar.images')}</span>
                         <span className="text-xs text-nexus-text-muted">{mediaCount.images}</span>
                     </div>
                     <div className="flex items-center gap-3 px-4 py-2 text-nexus-text-secondary">
                         <Video className="w-4 h-4 text-neon-purple" />
-                        <span className="flex-1">视频</span>
+                        <span className="flex-1">{t('sidebar.videos')}</span>
                         <span className="text-xs text-nexus-text-muted">{mediaCount.videos}</span>
                     </div>
                 </div>
@@ -139,7 +146,7 @@ export function Sidebar({
                 <div className="flex items-center gap-2 mb-3 px-4">
                     <Tags className="w-4 h-4 text-neon-purple" />
                     <p className="text-xs font-medium text-nexus-text-muted uppercase tracking-wider">
-                        标签云
+                        {t('sidebar.ai_tag_cloud')}
                     </p>
                 </div>
                 <motion.div
@@ -179,8 +186,24 @@ export function Sidebar({
                 </motion.div>
             </div>
 
+            {/* 设置按钮 */}
+            <div className="p-4 border-t border-gray-100">
+                <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                        onViewChange('settings')
+                        onTagSelect(null)
+                    }}
+                    className={`nav-item w-full ${currentView === 'settings' ? 'active' : ''}`}
+                >
+                    <Settings className={`w-5 h-5 ${currentView === 'settings' ? 'text-neon-cyan' : ''}`} />
+                    <span className="flex-1 text-left">{t('sidebar.settings')}</span>
+                </motion.button>
+            </div>
+
             {/* 底部装饰 */}
-            <div className="p-4 border-t border-white/5">
+            <div className="px-4 pb-4 border-white/5">
                 <div className="h-1 w-full rounded-full bg-gradient-to-r from-neon-cyan via-neon-purple to-neon-green opacity-30" />
             </div>
         </motion.aside>
