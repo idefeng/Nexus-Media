@@ -78,7 +78,7 @@ interface Window {
             getItem: (id: number) => Promise<{ success: boolean; item: MediaItemRecord | null }>
         }
         ai: {
-            getStatus: () => Promise<{ running: boolean; ready: boolean }>
+            getStatus: () => Promise<{ running: boolean; ready: boolean; pendingCount: number }>
             analyze: (imagePath: string) => Promise<{
                 success: boolean
                 tags?: { name: string; confidence: number }[]
@@ -112,6 +112,8 @@ interface Window {
             trashItems: (ids: number[]) => Promise<{ success: boolean; successCount?: number; error?: string }>
             calculateFocusScore: (imagePath: string) => Promise<{ success: boolean; data: any; error?: string }>
             clearDatabase: () => Promise<{ success: boolean; error?: string }>
+            startSimilarityScan: () => void
+            onSimilarityProgress: (callback: (data: { processed: number; total: number; groups: any[] }) => void) => () => void
         }
         studio: {
             generateCollage: (options: any) => Promise<any>

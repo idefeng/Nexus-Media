@@ -6,9 +6,10 @@ interface StatusBarProps {
     isScanning: boolean
     dbCount: number
     aiQueueCount?: number
+    aiStatus?: { running: boolean; ready: boolean }
 }
 
-export function StatusBar({ scanStatus, isScanning, dbCount, aiQueueCount = 0 }: StatusBarProps) {
+export function StatusBar({ scanStatus, isScanning, dbCount, aiQueueCount = 0, aiStatus }: StatusBarProps) {
     const { t } = useTranslation()
 
     return (
@@ -30,11 +31,15 @@ export function StatusBar({ scanStatus, isScanning, dbCount, aiQueueCount = 0 }:
 
             {/* Right: Stats */}
             <div className="flex items-center gap-4">
-                {/* AI Status (Simulated for now) */}
-                {aiQueueCount > 0 && (
-                    <div className="flex items-center gap-1.5 text-neon-purple">
-                        <Brain className="w-3 h-3 animate-pulse" />
-                        <span>{t('status_bar.processing', { count: aiQueueCount })}</span>
+                {/* AI Status */}
+                {aiStatus && (
+                    <div className={`flex items-center gap-1.5 ${aiStatus.ready ? 'text-neon-purple' : 'text-red-400'}`}>
+                        <Brain className={`w-3 h-3 ${aiStatus.ready && aiQueueCount > 0 ? 'animate-pulse' : ''}`} />
+                        {aiQueueCount > 0 ? (
+                            <span>{t('status_bar.processing', { count: aiQueueCount })}</span>
+                        ) : (
+                            <span>{aiStatus.ready ? 'AI 就绪' : 'AI 未就绪'}</span>
+                        )}
                     </div>
                 )}
 

@@ -3,7 +3,6 @@
  * 主应用组件
  */
 import { useState, useMemo, useEffect, useCallback } from 'react'
-import { motion } from 'framer-motion'
 import { Dashboard } from './components/dashboard/Dashboard'
 import { TopBar, Sidebar, StatusBar } from './components/layout'
 import { MediaGrid } from './components/media'
@@ -27,6 +26,8 @@ function App() {
     const [isScanning, setIsScanning] = useState(false)
     const [scanStatus, setScanStatus] = useState<string>('')
     const [dbMediaCount, setDbMediaCount] = useState(0)
+    const [aiQueueCount, setAiQueueCount] = useState(0)
+    const [aiStatus, setAiStatus] = useState({ running: false, ready: false, pendingCount: 0 })
 
     // 预览 Modal 状态
     const [previewItem, setPreviewItem] = useState<MediaItem | null>(null)
@@ -150,6 +151,25 @@ function App() {
         }
     }, [loadMediaFromDB, loadAllTags])
 
+    // 定期轮询 AI 状态和队列
+    useEffect(() => {
+        if (!window.electronAPI) return
+
+        const fetchAiStatus = async () => {
+            try {
+                const status = await window.electronAPI.ai.getStatus()
+                setAiStatus(status)
+                setAiQueueCount(status.pendingCount)
+            } catch (error) {
+                console.error('获取 AI 状态失败:', error)
+            }
+        }
+
+        fetchAiStatus()
+        const interval = setInterval(fetchAiStatus, 5000)
+        return () => clearInterval(interval)
+    }, [])
+
     // 过滤和搜索媒体
     const filteredItems = useMemo(() => {
         let items = [...mediaItems]
@@ -166,7 +186,7 @@ function App() {
 
         // 标签过滤 (快速标签选择)
         if (selectedTag) {
-            items = items.filter(item => item.tags.includes(selectedTag))
+            items = items.filter(item => item.tags.includes(selectedTag) || item.aiTags.includes(selectedTag))
         }
 
         // === 高级过滤 ===
@@ -216,13 +236,14 @@ function App() {
             )
         }
 
-        // 搜索过滤 - 搜索文件名、标签和备注
+        // 搜索过滤 - 搜索文件名、标签、AI标签和备注
         if (searchQuery.trim()) {
             const query = searchQuery.toLowerCase()
             items = items.filter(item =>
                 item.fileName.toLowerCase().includes(query) ||
                 item.notes.toLowerCase().includes(query) ||
-                item.tags.some(tag => tag.toLowerCase().includes(query))
+                item.tags.some(tag => tag.toLowerCase().includes(query)) ||
+                item.aiTags.some(tag => tag.toLowerCase().includes(query))
             )
         }
 
@@ -235,6 +256,9 @@ function App() {
 
         mediaItems.forEach(item => {
             item.tags.forEach(tag => {
+                tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)
+            })
+            item.aiTags.forEach(tag => {
                 tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)
             })
         })
@@ -555,7 +579,8 @@ function App() {
                     scanStatus={scanStatus}
                     isScanning={isScanning}
                     dbCount={dbMediaCount}
-                    aiQueueCount={0}
+                    aiQueueCount={aiQueueCount}
+                    aiStatus={aiStatus}
                 />
 
                 {/* 详情预览 Modal */}
@@ -579,29 +604,6 @@ function App() {
                     <div className="absolute top-0 right-0 w-full h-96 bg-gradient-to-b from-white to-transparent opacity-60" />
                 </div>
 
-                {/* AI 重新扫描悬浮按钮 (Floating Action Button) */}
-                <motion.button
-                    whileHover={{ scale: 1.05, boxShadow: "0 20px 25px -5px rgba(16, 185, 129, 0.2), 0 10px 10px -5px rgba(16, 185, 129, 0.1)" }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => {
-                        if (!isScanning) {
-                            // 触发重新扫描逻辑，这里可以使用 loadMediaFromDB 或者专门的重新扫描
-                            loadMediaFromDB();
-                            // 如果有专门的 AI 扫描 API，应该调用那个
-                            // 假设 AI 扫描是 verify 或 re-scan
-                        }
-                    }}
-                    className={`fixed bottom-8 right-8 w-14 h-14 rounded-full flex items-center justify-center shadow-clean-hover z-50 transition-colors ${isScanning ? 'bg-nexus-bg-tertiary cursor-not-allowed' : 'bg-neon-cyan text-white'
-                        }`}
-                    title="AI Re-scanning"
-                >
-                    <div className={`relative flex items-center justify-center ${isScanning ? 'animate-spin' : ''}`}>
-                        {/* 使用 Brain 或 Sparkles 图标 */}
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M12 2v4" /><path d="m16.2 7.8 2.9-2.9" /><path d="M18 12h4" /><path d="m16.2 16.2 2.9 2.9" /><path d="M12 18v4" /><path d="m4.9 19.1 2.9-2.9" /><path d="M2 12h4" /><path d="m4.9 4.9 2.9 2.9" />
-                        </svg>
-                    </div>
-                </motion.button>
             </div>
         </PreferencesProvider>
     )

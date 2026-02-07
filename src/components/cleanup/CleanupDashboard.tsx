@@ -331,11 +331,13 @@ export function CleanupDashboard() {
 
     // 执行分析
     const runAnalysis = useCallback(async () => {
+        if (!window.electronAPI) return
         setLoading(true)
         try {
             const result = await window.electronAPI.cleanup.analyze()
             if (result.success && result.data) {
                 setAnalysis(result.data as unknown as CleanupAnalysis)
+
                 // 默认选中所有副本（保留第一个）
                 const defaultSelected = new Set<number>()
                 for (const group of result.data.exactDuplicates) {
@@ -344,12 +346,52 @@ export function CleanupDashboard() {
                     }
                 }
                 setSelectedIds(defaultSelected)
+
+                // 启动激进式相似度扫描
+                window.electronAPI.cleanup.startSimilarityScan()
             }
         } catch (error) {
             console.error('清理分析失败:', error)
         } finally {
             setLoading(false)
         }
+    }, [])
+
+    // 监听相似度结果
+    useEffect(() => {
+        if (!window.electronAPI) return
+
+        const cleanup = window.electronAPI.cleanup.onSimilarityProgress((data) => {
+            setAnalysis(prev => {
+                if (!prev) return prev
+
+                // 合并新发现的项目，避免重复
+                const existingGroupIds = new Set(prev.similarImages.map(g => g.groupId))
+                const newGroups = data.groups.filter(g => !existingGroupIds.has(g.groupId))
+
+                if (newGroups.length === 0) return prev
+
+                const updatedSimilarImages = [...prev.similarImages, ...newGroups]
+
+                return {
+                    ...prev,
+                    stats: {
+                        ...prev.stats,
+                        similarGroups: updatedSimilarImages.length,
+                        similarFiles: updatedSimilarImages.reduce((sum, g) => sum + g.items.length, 0),
+                        potentialSavings: prev.stats.potentialSavings + newGroups.reduce((sum, g) => {
+                            // 估算：每个组保留一个，其他都是节省
+                            let savings = 0
+                            for (let i = 1; i < g.items.length; i++) savings += g.items[i].size
+                            return sum + savings
+                        }, 0)
+                    },
+                    similarImages: updatedSimilarImages
+                }
+            })
+        })
+
+        return cleanup
     }, [])
 
     // 初次加载

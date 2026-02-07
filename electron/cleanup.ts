@@ -112,96 +112,63 @@ export interface SimilarGroup {
  * 检测相似图片（基于 CLIP Embedding 余弦相似度）
  * @param threshold 相似度阈值 (默认 0.95)
  */
-export function detectSimilarImages(threshold: number = 0.95): SimilarGroup[] {
-    const items = getItemsWithEmbedding()
+/**
+ * 局部相似图片检测（用于渐进式扫描）
+ * @param items 需要检测的项目子集
+ * @param threshold 相似度阈值
+ */
+export function detectSimilarInChunk(items: { id: number; path: string; embedding: Buffer; size: number; created_at: string }[], threshold: number = 0.95): SimilarGroup[] {
+    if (items.length < 2) return []
 
-    if (items.length < 2) {
-        return []
-    }
-
-    // 使用并查集来分组
     const parent: Map<number, number> = new Map()
-
     const find = (x: number): number => {
         if (!parent.has(x)) parent.set(x, x)
-        if (parent.get(x) !== x) {
-            parent.set(x, find(parent.get(x)!))
-        }
+        if (parent.get(x) !== x) parent.set(x, find(parent.get(x)!))
         return parent.get(x)!
     }
-
     const union = (x: number, y: number): void => {
-        const px = find(x)
-        const py = find(y)
-        if (px !== py) {
-            parent.set(px, py)
-        }
+        const px = find(x), py = find(y)
+        if (px !== py) parent.set(px, py)
     }
 
-    // 存储相似度
+    const embeddings = items.map(item => bufferToFloat32Array(item.embedding))
+    const itemTimes = items.map(item => new Date(item.created_at).getTime())
+    const TIME_WINDOW_MS = 2 * 60 * 60 * 1000 // 2小时窗口
+
     const similarities: Map<string, number> = new Map()
 
-    // 计算两两相似度
     for (let i = 0; i < items.length; i++) {
-        const embeddingA = bufferToFloat32Array(items[i].embedding)
-
+        const embA = embeddings[i]
+        const timeA = itemTimes[i]
         for (let j = i + 1; j < items.length; j++) {
-            const embeddingB = bufferToFloat32Array(items[j].embedding)
-            const sim = cosineSimilarity(embeddingA, embeddingB)
-
+            if (timeA - itemTimes[j] > TIME_WINDOW_MS) break
+            const sim = cosineSimilarity(embA, embeddings[j])
             if (sim >= threshold) {
                 union(items[i].id, items[j].id)
-                const key = `${Math.min(items[i].id, items[j].id)}-${Math.max(items[i].id, items[j].id)}`
-                similarities.set(key, sim)
+                similarities.set(`${Math.min(items[i].id, items[j].id)}-${Math.max(items[i].id, items[j].id)}`, sim)
             }
         }
     }
 
-    // 按组分类
     const groups: Map<number, { id: number; path: string; size: number }[]> = new Map()
-    const groupSimilarity: Map<number, number> = new Map()
-
     for (const item of items) {
         const root = find(item.id)
-        if (!groups.has(root)) {
-            groups.set(root, [])
-            groupSimilarity.set(root, 1)
-        }
-        groups.get(root)!.push({
-            id: item.id,
-            path: item.path,
-            size: item.size
-        })
+        if (!groups.has(root)) groups.set(root, [])
+        groups.get(root)!.push({ id: item.id, path: item.path, size: item.size })
     }
 
-    // 过滤只有一个元素的组，并计算组内平均相似度
     const result: SimilarGroup[] = []
-    let groupId = 1
-
-    for (const [, groupItems] of Array.from(groups.entries())) {
+    let pseudoId = Date.now()
+    Array.from(groups.entries()).forEach(([, groupItems]) => {
         if (groupItems.length > 1) {
-            // 计算组内平均相似度
-            let totalSim = 0
-            let count = 0
-            for (let i = 0; i < groupItems.length; i++) {
-                for (let j = i + 1; j < groupItems.length; j++) {
-                    const key = `${Math.min(groupItems[i].id, groupItems[j].id)}-${Math.max(groupItems[i].id, groupItems[j].id)}`
-                    if (similarities.has(key)) {
-                        totalSim += similarities.get(key)!
-                        count++
-                    }
-                }
-            }
-
             result.push({
-                groupId: groupId++,
-                similarity: count > 0 ? totalSim / count : threshold,
-                items: groupItems.sort((a: { id: number; path: string; size: number }, b: { id: number; path: string; size: number }) => b.size - a.size) // 按大小排序，最大的在前
+                groupId: pseudoId++,
+                similarity: threshold,
+                items: groupItems.sort((a: any, b: any) => b.size - a.size)
             })
         }
-    }
-
-    return result.sort((a: SimilarGroup, b: SimilarGroup) => b.items.length - a.items.length) // 按组大小排序
+    })
+    return result
 }
 
 /**
@@ -224,10 +191,10 @@ export interface CleanupAnalysis {
 }
 
 /**
- * 执行完整的清理分析
+ * 执行初始化清理分析（返回非耗时部分）
  */
 export function analyzeCleanup(): CleanupAnalysis {
-    console.log('开始清理分析...')
+    console.log('开始基础清理分析...')
 
     // 获取基础统计
     const stats = getCleanupStats()
@@ -235,33 +202,20 @@ export function analyzeCleanup(): CleanupAnalysis {
     // 获取精确重复
     const exactDuplicates = getExactDuplicates()
 
-    // 获取相似图片
-    const similarImages = detectSimilarImages(0.95)
-    const similarFiles = similarImages.reduce((sum, g) => sum + g.items.length - 1, 0)
-
     // 获取低质量图片
     const lowQualityItems = getLowQualityItems(100)
 
-    // 计算潜在节省空间
-    let potentialSavings = stats.duplicateSize
-    for (const group of similarImages) {
-        // 保留最大的，其余可删除
-        for (let i = 1; i < group.items.length; i++) {
-            potentialSavings += group.items[i].size
-        }
-    }
-
-    console.log(`清理分析完成: ${exactDuplicates.length} 组重复, ${similarImages.length} 组相似, ${lowQualityItems.length} 个低质量`)
-
+    // 注意：相似图片由于耗时，现在改为渐进式扫描，不在此处一次性计算
+    // 这里的返回值主要用于展示初步概况
     return {
         stats: {
             ...stats,
-            similarGroups: similarImages.length,
-            similarFiles,
-            potentialSavings
+            similarGroups: 0,
+            similarFiles: 0,
+            potentialSavings: stats.duplicateSize
         },
         exactDuplicates,
-        similarImages,
+        similarImages: [],
         lowQualityItems
     }
 }
@@ -316,11 +270,15 @@ export async function trashItems(ids: number[]) {
  */
 export async function detectBlurryImages(imagePaths: string[]) {
     try {
-        const axios = (await import('axios')).default
-        const response = await axios.post('http://127.0.0.1:8765/batch-focus', {
-            image_paths: imagePaths
+        const response = await fetch('http://127.0.0.1:8765/batch-focus-score', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ image_paths: imagePaths })
         })
-        return response.data.results
+        const data = await response.json()
+        return data.results
     } catch (error) {
         console.error('清晰度计算失败:', error)
         return imagePaths.map(path => ({ path, success: false }))

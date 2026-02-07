@@ -20,13 +20,13 @@ class FaceEngine:
         
         # 默认使用 buffalo_l 模型
         # providers 可以根据 GPU 支持情况调整，RTX 4060 支持 CUDA
-        providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+        # ctx_id: GPU ID, 0 表示第一个 GPU, -1 表示 CPU
+        ctx_id = 0 if torch.cuda.is_available() else -1
         
-        self.app = FaceAnalysis(name='buffalo_l', providers=providers)
-        # ctx_id: GPU ID, 0 表示第一个 GPU
-        self.app.prepare(ctx_id=0, det_size=(640, 640))
+        self.app = FaceAnalysis(name='buffalo_l')
+        self.app.prepare(ctx_id=ctx_id, det_size=(640, 640))
         self.initialized = True
-        print(f"FaceEngine initialized on {'GPU' if torch.cuda.is_available() else 'CPU'}")
+        print(f"FaceEngine initialized on {'GPU' if ctx_id >= 0 else 'CPU'}")
 
     def detect_faces(self, image_path: str, save_dir: str = None):
         """

@@ -265,18 +265,6 @@ export function TopBar({
 
             {/* 右侧 - 刷新、添加按钮和窗口控制 */}
             <div className="flex items-center gap-2 no-drag">
-                {/* 刷新按钮 */}
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleRefresh}
-                    disabled={isRefreshing}
-                    className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 border border-transparent transition-colors"
-                    title="刷新媒体列表"
-                >
-                    <RefreshCw className={`w-4 h-4 text-nexus-text-secondary ${isRefreshing ? 'animate-spin' : ''}`} />
-                </motion.button>
-
                 {/* 添加文件夹按钮 */}
                 <motion.button
                     whileHover={{ scale: 1.05 }}
@@ -294,6 +282,18 @@ export function TopBar({
                     <span className="hidden sm:inline">
                         {isScanning ? t('topbar.scanning') : t('topbar.add_folder')}
                     </span>
+                </motion.button>
+
+                {/* 刷新按钮 */}
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className="p-2.5 rounded-xl bg-white border border-gray-200 text-nexus-text-secondary hover:text-nexus-text-primary hover:border-gray-300 hover:shadow-clean transition-all"
+                    title="刷新媒体列表"
+                >
+                    <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                 </motion.button>
 
                 {/* 窗口控制按钮 */}

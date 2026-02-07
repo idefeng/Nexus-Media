@@ -16,7 +16,8 @@ import { scanFolders, type ScannedFile, type ScanProgress } from './scanner'
 import { initThumbnailsDir, startThumbnailBatch } from './thumbnails'
 import { startAiServer, stopAiServer, checkHealth, analyzeImage, semanticSearch, processBackgroundAnalysis, getAiStatus } from './ai-sidecar'
 import { generateCollage } from './studio'
-import { processMd5Batch, detectSimilarImages as getSimilarGroups, trashItems as trashMediaItems, detectBlurryImages } from './cleanup'
+import { processMd5Batch, analyzeCleanup, detectSimilarInChunk, trashItems as trashMediaItems, detectBlurryImages } from './cleanup'
+import { getItemsWithEmbedding } from './database'
 import fs from 'fs-extra'
 import type { AppConfig } from './config-store'
 
@@ -95,12 +96,13 @@ app.whenReady().then(() => {
 
         // 启动后台任务调度器 (每10秒检查一次)
         setInterval(async () => {
-            // 扫描缩略图
-            await startThumbnailBatch()
-            // AI 背景分析 (CLIP, Face)
-            await processBackgroundAnalysis()
-            // MD5 与 清理相关
-            await processMd5Batch()
+            const fs = require('fs')
+            const path = require('path')
+            fs.appendFileSync(path.join(process.cwd(), 'scheduler_log.txt'), `[${new Date().toISOString()}] Scheduler tick\n`)
+            // 后台任务并行启动（各自内部有 isProcessing 锁）
+            startThumbnailBatch()
+            processBackgroundAnalysis()
+            processMd5Batch()
         }, 10000)
 
         // 立即执行一次
@@ -393,30 +395,51 @@ ipcMain.handle('database:clear', async () => {
     }
 })
 
-// 清理助手
+// 清理助手 - 基础分析
 ipcMain.handle('cleanup:analyze', async () => {
     try {
-        const stats = getCleanupStats()
-        const exactDuplicates = getExactDuplicates()
-        const similarImages = await getSimilarGroups()
-        const lowQualityItems = getLowQualityItems()
-
-        return {
-            success: true,
-            data: {
-                stats: {
-                    ...stats,
-                    similarGroups: similarImages.length,
-                    similarFiles: similarImages.reduce((sum: number, g: any) => sum + g.items.length, 0),
-                    potentialSavings: stats.duplicateSize + 0 // 这里可以增加更多估算
-                },
-                exactDuplicates,
-                similarImages,
-                lowQualityItems
-            }
-        }
+        const result = analyzeCleanup()
+        return { success: true, data: result }
     } catch (error: any) {
         return { success: false, error: error.message }
+    }
+})
+
+// 清理助手 - 激进式相似度扫描
+let isSimilarityScanning = false
+ipcMain.on('cleanup:start-similarity-scan', async (event) => {
+    if (isSimilarityScanning) return
+    isSimilarityScanning = true
+
+    try {
+        const { getEmbeddingCount, getItemsWithEmbedding } = await import('./database')
+        const total = getEmbeddingCount()
+        const CHUNK_SIZE = 100
+
+        console.log(`[Cleanup] 开始激进式扫描 (分页模式): 总计 ${total} 张, 批次大小 ${CHUNK_SIZE}`)
+
+        for (let offset = 0; offset < total; offset += CHUNK_SIZE) {
+            const chunk = getItemsWithEmbedding(CHUNK_SIZE, offset)
+            if (chunk.length === 0) break
+
+            const groups = detectSimilarInChunk(chunk, 0.95)
+
+            if (groups.length > 0) {
+                event.sender.send('cleanup:similarity-results', {
+                    processed: offset + chunk.length,
+                    total,
+                    groups
+                })
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 50))
+        }
+
+        console.log('[Cleanup] 激进式扫描完成')
+    } catch (error) {
+        console.error('[Cleanup] 扫描出错:', error)
+    } finally {
+        isSimilarityScanning = false
     }
 })
 

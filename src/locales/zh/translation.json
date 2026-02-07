@@ -89,7 +89,9 @@
         "clean_selected": "清理选中项"
     },
     "common": {
-        "cancel": "取消"
+        "cancel": "取消",
+        "app_name": "Nexus Media",
+        "app_subtitle": "下一代智能媒体资产管理系统"
     },
     "studio": {
         "title": "AI 创意工作室",

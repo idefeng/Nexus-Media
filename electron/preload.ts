@@ -94,7 +94,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // AI 功能
     ai: {
-        getStatus: () => ipcRenderer.invoke('ai:getStatus') as Promise<{ running: boolean; ready: boolean }>,
+        getStatus: () => ipcRenderer.invoke('ai:getStatus') as Promise<{ running: boolean; ready: boolean; pendingCount: number }>,
         analyze: (imagePath: string) => ipcRenderer.invoke('ai:analyze', imagePath),
         semanticSearch: (query: string, limit?: number) => ipcRenderer.invoke('ai:semanticSearch', query, limit || 20),
         adoptTag: (id: number, tag: string) => ipcRenderer.invoke('ai:adoptTag', id, tag)
@@ -120,7 +120,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
         getStats: () => ipcRenderer.invoke('cleanup:getStats'),
         trashItems: (ids: number[]) => ipcRenderer.invoke('cleanup:trashItems', ids),
         calculateFocusScore: (imagePath: string) => ipcRenderer.invoke('cleanup:calculateFocusScore', imagePath),
-        clearDatabase: () => ipcRenderer.invoke('database:clear')
+        clearDatabase: () => ipcRenderer.invoke('database:clear'),
+        startSimilarityScan: () => ipcRenderer.send('cleanup:start-similarity-scan'),
+        onSimilarityProgress: (callback: (data: { processed: number; total: number; groups: any[] }) => void) => {
+            const listener = (_event: any, data: any) => callback(data)
+            ipcRenderer.on('cleanup:similarity-results', listener)
+            return () => ipcRenderer.removeListener('cleanup:similarity-results', listener)
+        }
     },
 
     // 创意工作室
@@ -179,7 +185,7 @@ declare global {
                 getItem: (id: number) => Promise<{ success: boolean; item: MediaItemRecord | null }>
             }
             ai: {
-                getStatus: () => Promise<{ running: boolean; ready: boolean }>
+                getStatus: () => Promise<{ running: boolean; ready: boolean; pendingCount: number }>
                 analyze: (imagePath: string) => Promise<any>
                 semanticSearch: (query: string, limit?: number) => Promise<any>
                 adoptTag: (id: number, tag: string) => Promise<any>

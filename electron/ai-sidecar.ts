@@ -8,7 +8,8 @@ import fs from 'fs'
 import { app } from 'electron'
 import {
     updateAiTags, updateEmbedding, getPendingAiItems, getAllEmbeddings,
-    insertFace, getUnclusteredFaces, updateFacesPerson, createPerson, updatePersonName
+    insertFace, getUnclusteredFaces, updateFacesPerson, createPerson, updatePersonName,
+    getPendingAiCount
 } from './database'
 
 const AI_SERVER_PORT = 8765
@@ -22,6 +23,7 @@ if (!fs.existsSync(FACE_THUMBS_DIR)) {
 
 let pythonProcess: ChildProcess | null = null
 let isServerReady = false
+let healthCheckInterval: NodeJS.Timeout | null = null
 
 /**
  * 获取 Python 虚拟环境路径
@@ -68,6 +70,7 @@ export async function startAiServer(): Promise<boolean> {
 
             pythonProcess.stdout?.on('data', (data) => {
                 const output = data.toString()
+                fs.appendFileSync(path.join(process.cwd(), 'ai_server_log.txt'), `[${new Date().toISOString()}] ${output}`)
                 console.log('[AI Server]', output)
                 if (output.includes('Uvicorn running') || output.includes('Application startup complete')) {
                     isServerReady = true
@@ -94,10 +97,22 @@ export async function startAiServer(): Promise<boolean> {
             // 超时检查
             setTimeout(() => {
                 if (!isServerReady) {
-                    console.log('AI 服务启动超时，尝试健康检查...')
+                    console.log('AI 服务启动 30s 未响应，尝试健康检查重连...')
                     checkHealth().then(resolve)
                 }
             }, 30000)
+
+            // 启动定期健康检查自愈
+            if (!healthCheckInterval) {
+                healthCheckInterval = setInterval(async () => {
+                    if (pythonProcess) {
+                        const ok = await checkHealth()
+                        if (!ok) {
+                            console.warn('AI 服务后台健康检查失败，可能正在初始化或已挂起')
+                        }
+                    }
+                }, 60000) // 每分钟检查一次
+            }
         } catch (err) {
             console.error('启动 AI 服务失败:', err)
             resolve(false)
@@ -109,6 +124,10 @@ export async function startAiServer(): Promise<boolean> {
  * 停止 Python AI 服务
  */
 export function stopAiServer(): void {
+    if (healthCheckInterval) {
+        clearInterval(healthCheckInterval)
+        healthCheckInterval = null
+    }
     if (pythonProcess) {
         console.log('正在停止 AI 服务...')
         pythonProcess.kill()
@@ -326,21 +345,26 @@ let isAnalysisProcessing = false
 export async function processBackgroundAnalysis(): Promise<void> {
     if (isAnalysisProcessing) return
     if (!isServerReady) {
-        console.log('AI 服务未就绪，跳过后台分析')
-        return
+        // 如果不就绪，尝试一次健康检查看是否能恢复
+        const ok = await checkHealth()
+        if (!ok) {
+            console.log('AI 服务未就绪，跳过后台分析任务')
+            return
+        }
     }
 
     isAnalysisProcessing = true
 
     try {
-        const pendingItems = getPendingAiItems(5) // 每次处理 5 张
+        const pendingItems = getPendingAiItems(20) // 每次处理 20 张
         if (pendingItems.length === 0) {
             // 后台清理：对未归类人脸尝试聚类
             await processFacesAndClustering()
             return
         }
 
-        console.log(`后台 AI 分析: 处理 ${pendingItems.length} 张图片`)
+        console.log(`[AI] 后台分析任务启动: 待处理 ${pendingItems.length} 张图片`)
+        fs.appendFileSync(path.join(process.cwd(), 'ai_server_log.txt'), `[${new Date().toISOString()}] Starting batch of ${pendingItems.length} items\n`)
 
         for (const item of pendingItems) {
             try {
@@ -359,7 +383,12 @@ export async function processBackgroundAnalysis(): Promise<void> {
                     const tagNames = result.tags.map(t => t.name)
                     updateAiTags(item.id, tagNames)
                     updateEmbedding(item.id, result.embedding)
-                    console.log(`AI 分析完成: ${item.name} -> ${tagNames.join(', ')}`)
+                    console.log(`[AI] 分析完成: ${item.name} -> ${tagNames.join(', ')}`)
+                } else {
+                    console.error(`[AI] 分析失败 [${item.id}]: ${item.path}`, result.error)
+                    // 为防止死锁在坏文件上，标记为失败 (使用空 Buffer 作为标志)
+                    updateAiTags(item.id, ['_ANALYSIS_FAILED_'])
+                    updateEmbedding(item.id, []) // 此处会存入空 Blob，使其不再出现在 getPendingAiItems
                 }
 
                 // 2. 人脸检测 (Face)
@@ -439,9 +468,10 @@ async function processFacesAndClustering() {
 /**
  * 获取 AI 服务状态
  */
-export function getAiStatus(): { running: boolean; ready: boolean } {
+export function getAiStatus(): { running: boolean; ready: boolean; pendingCount: number } {
     return {
         running: pythonProcess !== null,
-        ready: isServerReady
+        ready: isServerReady,
+        pendingCount: getPendingAiCount()
     }
 }

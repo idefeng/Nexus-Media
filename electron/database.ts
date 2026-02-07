@@ -335,6 +335,14 @@ export function getMediaCount(): number {
 }
 
 /**
+ * 获取有 embedding 的图片总数
+ */
+export function getEmbeddingCount(): number {
+    const result = db.prepare('SELECT COUNT(*) as count FROM media_items WHERE embedding IS NOT NULL').get() as any
+    return result.count
+}
+
+/**
  * 切换收藏
  */
 export function toggleFavorite(id: number): boolean {
@@ -364,13 +372,19 @@ export function updateNotes(id: number, notes: string): void {
  * 获取所有唯一标签（用于自动补全）
  */
 export function getAllTags(): string[] {
-    const rows = db.prepare('SELECT tags FROM media_items WHERE tags IS NOT NULL AND tags != \'[]\'').all() as { tags: string }[]
+    const rows = db.prepare('SELECT tags, ai_tags FROM media_items WHERE (tags IS NOT NULL AND tags != \'[]\') OR (ai_tags IS NOT NULL AND ai_tags != \'[]\')').all() as { tags: string, ai_tags: string | null }[]
     const tagSet = new Set<string>()
 
     for (const row of rows) {
         try {
-            const tags = JSON.parse(row.tags) as string[]
-            tags.forEach(tag => tagSet.add(tag))
+            if (row.tags) {
+                const tags = JSON.parse(row.tags) as string[]
+                tags.forEach(tag => tagSet.add(tag))
+            }
+            if (row.ai_tags) {
+                const aiTags = JSON.parse(row.ai_tags) as string[]
+                aiTags.forEach(tag => tagSet.add(tag))
+            }
         } catch {
             // 忽略解析错误
         }
@@ -417,6 +431,19 @@ export function getPendingAiItems(limit: number = 10): MediaItemRecord[] {
         ORDER BY created_at DESC 
         LIMIT ?
     `).all(limit) as MediaItemRecord[]
+}
+
+/**
+ * 获取待分析 AI 数量
+ */
+export function getPendingAiCount(): number {
+    const result = db.prepare(`
+        SELECT COUNT(*) as count FROM media_items 
+        WHERE type = 'image' 
+          AND thumbnail_path IS NOT NULL 
+          AND embedding IS NULL
+    `).get() as { count: number }
+    return result.count
 }
 
 /**
@@ -591,14 +618,15 @@ export function getExactDuplicates(): { hash: string; count: number; totalSize: 
 }
 
 /**
- * 获取所有有 embedding 的图片用于相似度分析
+ * 获取有 embedding 的图片用于相似度分析（支持分页以节省内存）
  */
-export function getItemsWithEmbedding(): { id: number; path: string; embedding: Buffer; size: number }[] {
+export function getItemsWithEmbedding(limit: number = 1000, offset: number = 0): { id: number; path: string; embedding: Buffer; size: number; created_at: string }[] {
     return db.prepare(`
-        SELECT id, path, embedding, size FROM media_items 
+        SELECT id, path, embedding, size, created_at FROM media_items 
         WHERE type = 'image' AND embedding IS NOT NULL
         ORDER BY created_at DESC
-    `).all() as { id: number; path: string; embedding: Buffer; size: number }[]
+        LIMIT ? OFFSET ?
+    `).all(limit, offset) as { id: number; path: string; embedding: Buffer; size: number; created_at: string }[]
 }
 
 /**
