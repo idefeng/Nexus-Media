@@ -66,7 +66,7 @@ export function Sidebar({
             initial={{ x: -20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.4, delay: 0.1 }}
-            className="w-64 glass-panel border-r border-white/5 flex flex-col"
+            className="w-64 glass-panel border-r border-gray-100 flex flex-col"
         >
             {/* 导航菜单 */}
             <nav className="p-4 space-y-1">
@@ -95,8 +95,8 @@ export function Sidebar({
                             <Icon className={`w-5 h-5 ${isActive ? 'text-neon-cyan' : ''}`} />
                             <span className="flex-1 text-left">{item.label}</span>
                             <span className={`text-xs px-2 py-0.5 rounded-full ${isActive
-                                ? 'bg-neon-cyan/20 text-neon-cyan'
-                                : 'bg-nexus-bg-tertiary text-nexus-text-muted'
+                                ? 'bg-neon-cyan/10 text-neon-cyan'
+                                : 'bg-gray-100 text-nexus-text-muted'
                                 }`}>
                                 {count}
                             </span>
@@ -106,7 +106,7 @@ export function Sidebar({
             </nav>
 
             {/* 媒体类型统计 */}
-            <div className="px-4 py-3 border-t border-white/5">
+            <div className="px-4 py-3 border-t border-gray-100">
                 <p className="text-xs font-medium text-nexus-text-muted uppercase tracking-wider mb-3 px-4">
                     类型
                 </p>
@@ -135,7 +135,7 @@ export function Sidebar({
             </div>
 
             {/* 标签云 */}
-            <div className="flex-1 px-4 py-3 border-t border-white/5 overflow-y-auto">
+            <div className="flex-1 px-4 py-3 border-t border-gray-100 overflow-y-auto">
                 <div className="flex items-center gap-2 mb-3 px-4">
                     <Tags className="w-4 h-4 text-neon-purple" />
                     <p className="text-xs font-medium text-nexus-text-muted uppercase tracking-wider">

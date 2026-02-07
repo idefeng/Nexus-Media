@@ -50,6 +50,11 @@ export interface MediaItemRecord {
 export function recordToMediaItem(record: MediaItemRecord): MediaItem {
     // 确保缩略图路径使用了自定义协议
     let thumbPath = record.thumbnail_path
+    // 如果没有生成缩略图且是图片，直接使用原图
+    if (!thumbPath && record.type === 'image') {
+        thumbPath = record.path
+    }
+
     if (thumbPath && !thumbPath.startsWith('nexus-media://')) {
         thumbPath = `nexus-media://local/${thumbPath}`
     }

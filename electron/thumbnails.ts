@@ -13,7 +13,24 @@ import { updateThumbnailPath, getPendingThumbnailItems } from './database'
 
 // 设置 ffmpeg 路径
 if (ffmpegPath) {
-    ffmpeg.setFfmpegPath(ffmpegPath)
+    // 修复可能的路径问题（特别是如果使用了 asar 打包）
+    const fixedPath = ffmpegPath.replace('app.asar', 'app.asar.unpacked')
+
+    if (fs.existsSync(fixedPath)) {
+        console.log('FFmpeg binary found at:', fixedPath)
+        ffmpeg.setFfmpegPath(fixedPath)
+    } else {
+        console.error('FFmpeg binary not found at:', fixedPath)
+        // 尝试使用原始路径
+        if (fs.existsSync(ffmpegPath)) {
+            console.log('Using original FFmpeg path:', ffmpegPath)
+            ffmpeg.setFfmpegPath(ffmpegPath)
+        } else {
+            console.warn('FFmpeg static binary not found on disk. Relying on system PATH.')
+        }
+    }
+} else {
+    console.warn('ffmpeg-static did not return a path. Relying on system PATH.')
 }
 
 // 缩略图目录
@@ -24,6 +41,7 @@ let thumbnailsDir: string = ''
  */
 export function initThumbnailsDir() {
     thumbnailsDir = path.join(app.getPath('userData'), 'thumbnails')
+    console.log('Thumbnails directory:', thumbnailsDir)
     if (!fs.existsSync(thumbnailsDir)) {
         fs.mkdirSync(thumbnailsDir, { recursive: true })
     }
@@ -74,30 +92,34 @@ async function generateVideoThumbnail(filePath: string, outputDir: string): Prom
             })
             .on('end', async () => {
                 try {
-                    // 转换为 webp 以节省空间并统一格式
-                    await sharp(tempJpg)
-                        .resize(300, 300, { fit: 'cover' })
-                        .webp({ quality: 80 })
-                        .toFile(outputPath)
+                    if (fs.existsSync(tempJpg)) {
+                        // 转换为 webp 以节省空间并统一格式
+                        await sharp(tempJpg)
+                            .resize(300, 300, { fit: 'cover' })
+                            .webp({ quality: 80 })
+                            .toFile(outputPath)
 
-                    // 延迟删除临时 jpg（避免 Windows 文件锁定问题）
-                    setTimeout(() => {
-                        try {
-                            if (fs.existsSync(tempJpg)) {
-                                fs.unlinkSync(tempJpg)
+                        // 延迟删除临时 jpg（避免 Windows 文件锁定问题）
+                        setTimeout(() => {
+                            try {
+                                if (fs.existsSync(tempJpg)) {
+                                    fs.unlinkSync(tempJpg)
+                                }
+                            } catch {
+                                // 忽略删除失败，不影响主流程
                             }
-                        } catch {
-                            // 忽略删除失败，不影响主流程
-                        }
-                    }, 500)
+                        }, 500)
 
-                    resolve(outputPath)
+                        resolve(outputPath)
+                    } else {
+                        reject(new Error('FFmpeg processing finished but output file missing'))
+                    }
                 } catch (err) {
                     reject(err)
                 }
             })
-
             .on('error', (err) => {
+                console.error(`FFmpeg error for ${filePath}:`, err)
                 reject(err)
             })
     })

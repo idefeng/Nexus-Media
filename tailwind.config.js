@@ -8,27 +8,28 @@ export default {
     theme: {
         extend: {
             colors: {
-                // Graphite Gray Palette
+                // Swiss Design / Clean Tech Palette
                 'nexus-bg': {
-                    DEFAULT: '#121212', // Graphite Base
-                    secondary: '#1C1C1E', // Graphite Secondary
-                    tertiary: '#2C2C2E', // Graphite Tertiary
-                    hover: '#3A3A3C'
+                    DEFAULT: '#F9F9F9', // Light Gray Base
+                    secondary: '#FFFFFF', // Pure White Cards
+                    tertiary: '#F4F4F5', // Subtle Gray for inputs/secondary backgrounds
+                    hover: '#F0F0F0'
                 },
-                // Electric Blue & Accents
+                // Accents
                 'neon': {
-                    cyan: '#00f0ff',
-                    purple: '#bf00ff',
-                    green: '#00ff88',
-                    pink: '#ff0080',
-                    electric: '#2997FF' // Electric Blue
+                    cyan: '#10B981', // Mapping 'cyan' to Emerald Green (Primary Action)
+                    purple: '#64748B', // Mapping 'purple' to Slate Gray (Secondary/Neutral)
+                    green: '#10B981', // Emerald Green
+                    pink: '#EF4444', // Red for errors/alerts
+                    electric: '#10B981' // Emerald Green
                 },
                 // Text Colors
                 'nexus-text': {
-                    primary: '#FFFFFF',
-                    secondary: '#EBEBF5', // 60% White
-                    muted: '#8E8E93' // Gray
-                }
+                    primary: '#111827', // Dark Gray/Black
+                    secondary: '#4B5563', // Medium Gray
+                    muted: '#9CA3AF' // Light Gray
+                },
+                'nexus-border': '#E5E7EB' // Light Gray Border
             },
             fontFamily: {
                 'display': ['Inter', 'sans-serif'],
@@ -36,19 +37,21 @@ export default {
                 'mono': ['JetBrains Mono', 'monospace']
             },
             boxShadow: {
-                'neon-cyan': '0 0 20px rgba(0, 240, 255, 0.3)',
-                'neon-purple': '0 0 20px rgba(191, 0, 255, 0.3)',
-                'neon-glow': '0 0 40px rgba(0, 240, 255, 0.15), 0 0 80px rgba(191, 0, 255, 0.1)'
+                'clean': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+                'clean-hover': '0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025)',
+                // Mapping old neon shadows to clean shadows
+                'neon-cyan': '0 4px 12px rgba(16, 185, 129, 0.15)',
+                'neon-purple': '0 4px 12px rgba(0, 0, 0, 0.05)',
+                'neon-glow': '0 0 0 0 transparent' // Remove intense glow
             },
             animation: {
                 'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                'glow': 'glow 2s ease-in-out infinite alternate'
+                // Remove glow animation or make it subtle fade
+                'glow': 'none'
             },
-            keyframes: {
-                glow: {
-                    '0%': { boxShadow: '0 0 5px rgba(0, 240, 255, 0.2)' },
-                    '100%': { boxShadow: '0 0 20px rgba(0, 240, 255, 0.4), 0 0 40px rgba(0, 240, 255, 0.2)' }
-                }
+            borderRadius: {
+                'xl': '16px',
+                '2xl': '24px'
             }
         },
     },

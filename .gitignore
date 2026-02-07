@@ -1,1 +1,17 @@
 node_modules
+dist
+dist-electron
+release
+*.log
+.DS_Store
+npm-debug.log
+yarn-error.log
+test-results
+coverage
+.vscode
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

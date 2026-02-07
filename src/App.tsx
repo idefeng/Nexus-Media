@@ -3,6 +3,7 @@
  * 主应用组件
  */
 import { useState, useMemo, useEffect, useCallback } from 'react'
+import { motion } from 'framer-motion'
 import { Dashboard } from './components/dashboard/Dashboard'
 import { TopBar, Sidebar } from './components/layout'
 import { MediaGrid } from './components/media'
@@ -510,15 +511,34 @@ function App() {
                 onAdoptAiTag={handleAdoptAiTag}
             />
 
-            {/* 背景装饰效果 */}
-            <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
-                {/* 顶部渐变光晕 */}
-                <div className="absolute -top-40 -right-40 w-96 h-96 bg-neon-cyan/10 rounded-full blur-3xl" />
-                <div className="absolute -top-40 left-1/3 w-80 h-80 bg-neon-purple/10 rounded-full blur-3xl" />
-                {/* 底部渐变光晕 */}
-                <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-neon-purple/8 rounded-full blur-3xl" />
-                <div className="absolute -bottom-20 right-1/4 w-72 h-72 bg-neon-green/5 rounded-full blur-3xl" />
+            {/* 底部装饰 - 极简风格不需要强光晕，可以使用极淡的渐变背景或留白 */}
+            <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10 bg-nexus-bg">
+                <div className="absolute top-0 right-0 w-full h-96 bg-gradient-to-b from-white to-transparent opacity-60" />
             </div>
+
+            {/* AI 重新扫描悬浮按钮 (Floating Action Button) */}
+            <motion.button
+                whileHover={{ scale: 1.05, boxShadow: "0 20px 25px -5px rgba(16, 185, 129, 0.2), 0 10px 10px -5px rgba(16, 185, 129, 0.1)" }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                    if (!isScanning) {
+                        // 触发重新扫描逻辑，这里可以使用 loadMediaFromDB 或者专门的重新扫描
+                        loadMediaFromDB();
+                        // 如果有专门的 AI 扫描 API，应该调用那个
+                        // 假设 AI 扫描是 verify 或 re-scan
+                    }
+                }}
+                className={`fixed bottom-8 right-8 w-14 h-14 rounded-full flex items-center justify-center shadow-clean-hover z-50 transition-colors ${isScanning ? 'bg-nexus-bg-tertiary cursor-not-allowed' : 'bg-neon-cyan text-white'
+                    }`}
+                title="AI Re-scanning"
+            >
+                <div className={`relative flex items-center justify-center ${isScanning ? 'animate-spin' : ''}`}>
+                    {/* 使用 Brain 或 Sparkles 图标 */}
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 2v4" /><path d="m16.2 7.8 2.9-2.9" /><path d="M18 12h4" /><path d="m16.2 16.2 2.9 2.9" /><path d="M12 18v4" /><path d="m4.9 19.1 2.9-2.9" /><path d="M2 12h4" /><path d="m4.9 4.9 2.9 2.9" />
+                    </svg>
+                </div>
+            </motion.button>
         </div>
     )
 }

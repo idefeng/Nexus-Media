@@ -89,6 +89,8 @@ app.whenReady().then(async () => {
 
     // 初始化缩略图目录
     initThumbnailsDir()
+    // 启动后台缩略图生成任务 (处理之前未完成的任务)
+    startThumbnailBatch()
 
     // 启动 AI 服务（后台）
     startAiServer().then(ready => {

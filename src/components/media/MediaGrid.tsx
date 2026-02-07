@@ -28,7 +28,8 @@ interface MediaGridProps {
 const viewTitles: Record<ViewType, { title: string; icon: React.ReactNode }> = {
     all: { title: '所有媒体', icon: <Image className="w-5 h-5" /> },
     recent: { title: '最近添加', icon: <Video className="w-5 h-5" /> },
-    favorites: { title: '收藏夹', icon: <Inbox className="w-5 h-5" /> }
+    favorites: { title: '收藏夹', icon: <Inbox className="w-5 h-5" /> },
+    dashboard: { title: '仪表盘', icon: <Image className="w-5 h-5" /> }
 }
 
 export function MediaGrid({
@@ -194,7 +195,7 @@ export function MediaGrid({
                     className="mb-2"
                 >
                     <div className="flex items-center gap-3 mb-1">
-                        <h2 className="font-display text-2xl font-bold text-white">
+                        <h2 className="font-display text-2xl font-bold text-nexus-text-primary">
                             {selectedTag ? `#${selectedTag}` : title}
                         </h2>
                         <span className="text-sm text-nexus-text-muted">
@@ -207,8 +208,8 @@ export function MediaGrid({
                             whileTap={{ scale: 0.95 }}
                             onClick={toggleSelectionMode}
                             className={`ml-auto flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${isSelectionMode
-                                    ? 'bg-neon-cyan/20 text-neon-cyan'
-                                    : 'bg-white/5 text-nexus-text-secondary hover:bg-white/10'
+                                ? 'bg-neon-cyan/10 text-neon-cyan'
+                                : 'bg-gray-100 text-nexus-text-secondary hover:bg-gray-200'
                                 }`}
                         >
                             <CheckSquare className="w-4 h-4" />

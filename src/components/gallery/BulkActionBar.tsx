@@ -81,19 +81,19 @@ export function BulkActionBar({
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                         className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40"
                     >
-                        <div className="glass-panel border border-white/10 rounded-2xl px-6 py-4 flex items-center gap-6 shadow-2xl">
+                        <div className="glass-panel border border-gray-200 rounded-2xl px-6 py-4 flex items-center gap-6 shadow-2xl">
                             {/* 选中数量 */}
                             <div className="flex items-center gap-2">
                                 <div className="w-8 h-8 rounded-lg bg-neon-cyan/20 flex items-center justify-center">
                                     <Check className="w-4 h-4 text-neon-cyan" />
                                 </div>
-                                <span className="text-white font-medium">
+                                <span className="text-nexus-text-primary font-medium">
                                     已选择 <span className="text-neon-cyan">{selectedCount}</span> 项
                                 </span>
                             </div>
 
                             {/* 分隔线 */}
-                            <div className="w-px h-8 bg-white/20" />
+                            <div className="w-px h-8 bg-gray-200" />
 
                             {/* 操作按钮 */}
                             <div className="flex items-center gap-2">
@@ -127,7 +127,7 @@ export function BulkActionBar({
                                     whileTap={{ scale: 0.95 }}
                                     onClick={handleDelete}
                                     disabled={isDeleting}
-                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors disabled:opacity-50"
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 transition-colors disabled:opacity-50"
                                 >
                                     {isDeleting ? (
                                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -139,14 +139,14 @@ export function BulkActionBar({
                             </div>
 
                             {/* 分隔线 */}
-                            <div className="w-px h-8 bg-white/20" />
+                            <div className="w-px h-8 bg-gray-200" />
 
                             {/* 取消选择 */}
                             <motion.button
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.9 }}
                                 onClick={onClearSelection}
-                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
                             >
                                 <X className="w-4 h-4 text-nexus-text-secondary" />
                             </motion.button>
@@ -206,8 +206,8 @@ export function BulkActionBar({
                                             key={tag}
                                             onClick={() => toggleTag(tag)}
                                             className={`px-3 py-1 rounded-full text-sm transition-all ${selectedTags.has(tag)
-                                                    ? 'bg-neon-purple text-black'
-                                                    : 'bg-white/10 text-nexus-text hover:bg-white/20'
+                                                ? 'bg-neon-purple text-black'
+                                                : 'bg-white/10 text-nexus-text hover:bg-white/20'
                                                 }`}
                                         >
                                             {tag}

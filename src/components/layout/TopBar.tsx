@@ -16,6 +16,7 @@ import {
     Brain,
     Zap
 } from 'lucide-react'
+import logo from '../../assets/logo.png'
 
 interface SemanticSearchResult {
     id: number
@@ -159,21 +160,18 @@ export function TopBar({
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.4 }}
-            className="h-16 glass-panel border-b border-white/5 flex items-center justify-between px-6 drag-region z-50 relative"
+            className="h-16 glass-panel border-b border-gray-100 flex items-center justify-between px-6 drag-region z-50 relative"
         >
             {/* 左侧 - Logo 和标题 */}
             <div className="flex items-center gap-3 no-drag w-64">
                 <div className="relative group cursor-pointer">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-neon-electric to-neon-purple flex items-center justify-center shadow-lg shadow-neon-electric/20 group-hover:shadow-neon-electric/40 transition-shadow duration-300">
-                        <Sparkles className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-neon-electric to-neon-purple blur-md opacity-40 group-hover:opacity-60 transition-opacity" />
+                    <img src={logo} alt="Logo" className="w-10 h-10 rounded-xl shadow-lg shadow-neon-electric/20 group-hover:shadow-neon-electric/40 transition-all duration-300 object-cover" />
                 </div>
                 <div>
-                    <h1 className="font-display font-bold text-lg leading-tight bg-gradient-to-r from-white to-nexus-text-secondary bg-clip-text text-transparent">
-                        Nexus Media
+                    <h1 className="font-display font-bold text-lg leading-tight bg-gradient-to-r from-nexus-text-primary to-nexus-text-secondary bg-clip-text text-transparent">
+                        灵境媒体
                     </h1>
-                    <span className="text-[10px] text-nexus-text-muted font-mono tracking-wider">PRO MAX</span>
+                    <span className="text-[10px] text-nexus-text-muted font-mono tracking-wider">Nexus Media</span>
                 </div>
             </div>
 
@@ -192,7 +190,7 @@ export function TopBar({
                     </motion.div>
                 ) : (
                     <div className="relative group w-full">
-                        <div className={`absolute inset-0 rounded-xl transition-opacity duration-300 pointer-events-none ${isSearching || isSemanticMode ? 'bg-neon-purple/10 opacity-100' : 'bg-neon-electric/5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
+                        <div className={`absolute inset-0 rounded-xl transition-opacity duration-300 pointer-events-none ${isSearching || isSemanticMode ? 'bg-neon-purple/5 opacity-100' : 'bg-neon-electric/5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
                             }`} />
 
                         <div className="relative flex items-center">
@@ -212,7 +210,7 @@ export function TopBar({
                                 placeholder={isSemanticMode ? "Describe what you're looking for..." : "Search media, tags, or commands..."}
                                 value={searchQuery}
                                 onChange={(e) => onSearchChange(e.target.value)}
-                                className={`w-full bg-nexus-bg-tertiary/50 border border-white/10 rounded-xl py-2.5 pl-11 pr-32 text-sm text-white placeholder-nexus-text-muted focus:outline-none focus:border-neon-electric/50 focus:bg-nexus-bg-tertiary transition-all duration-300 shadow-inner`}
+                                className={`w-full bg-nexus-bg-tertiary border border-transparent rounded-xl py-2.5 pl-11 pr-32 text-sm text-nexus-text-primary placeholder-nexus-text-muted focus:outline-none focus:border-neon-electric/30 focus:bg-white focus:shadow-clean transition-all duration-300 shadow-sm`}
                             />
 
                             {/* Right Actions */}
@@ -222,8 +220,8 @@ export function TopBar({
                                     <button
                                         onClick={toggleSemanticMode}
                                         className={`p-1.5 rounded-lg transition-all ${isSemanticMode
-                                            ? 'bg-neon-purple/20 text-neon-purple shadow-[0_0_10px_rgba(191,0,255,0.3)]'
-                                            : 'text-nexus-text-muted hover:text-white hover:bg-white/5'
+                                            ? 'bg-neon-purple/20 text-neon-purple shadow-sm'
+                                            : 'text-nexus-text-muted hover:text-nexus-text-primary hover:bg-gray-200'
                                             }`}
                                         title={isSemanticMode ? 'Disable AI Search' : 'Enable AI Search'}
                                     >
@@ -232,7 +230,7 @@ export function TopBar({
                                 )}
 
                                 {/* Shortcut Hint */}
-                                <div className="hidden sm:flex items-center gap-1 px-1.5 py-1 rounded-md bg-white/5 border border-white/5 text-[10px] font-mono text-nexus-text-muted pointer-events-none select-none">
+                                <div className="hidden sm:flex items-center gap-1 px-1.5 py-1 rounded-md bg-gray-200 border border-gray-300 text-[10px] font-mono text-gray-500 pointer-events-none select-none">
                                     <span className="text-xs">⌘</span>
                                     <span>K</span>
                                 </div>
@@ -248,7 +246,7 @@ export function TopBar({
                             initial={{ opacity: 0, y: 5 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 5 }}
-                            className="absolute left-0 right-0 mt-2 p-3 rounded-xl bg-nexus-bg-secondary/95 backdrop-blur-xl border border-neon-purple/20 shadow-2xl shadow-neon-purple/10 z-50 transform origin-top"
+                            className="absolute left-0 right-0 mt-2 p-3 rounded-xl bg-white/95 backdrop-blur-xl border border-gray-200 shadow-xl shadow-gray-200/50 z-50 transform origin-top"
                         >
                             <div className="flex items-center justify-between text-xs text-neon-purple mb-2 px-1">
                                 <span className="flex items-center gap-1.5">
@@ -271,7 +269,7 @@ export function TopBar({
                     whileTap={{ scale: 0.95 }}
                     onClick={handleRefresh}
                     disabled={isRefreshing}
-                    className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+                    className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 border border-transparent transition-colors"
                     title="刷新媒体列表"
                 >
                     <RefreshCw className={`w-4 h-4 text-nexus-text-secondary ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -298,24 +296,24 @@ export function TopBar({
 
                 {/* 窗口控制按钮 */}
                 {isElectron && (
-                    <div className="flex items-center ml-4 border-l border-white/10 pl-4">
+                    <div className="flex items-center ml-4 border-l border-gray-200 pl-4">
                         <button
                             onClick={handleMinimize}
-                            className="w-8 h-8 flex items-center justify-center rounded hover:bg-white/10 transition-colors"
+                            className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 transition-colors"
                         >
                             <Minus className="w-3.5 h-3.5 text-nexus-text-secondary" />
                         </button>
                         <button
                             onClick={handleMaximize}
-                            className="w-8 h-8 flex items-center justify-center rounded hover:bg-white/10 transition-colors"
+                            className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-200 transition-colors"
                         >
                             <Square className="w-3 h-3 text-nexus-text-secondary" />
                         </button>
                         <button
                             onClick={handleClose}
-                            className="w-8 h-8 flex items-center justify-center rounded hover:bg-red-500/20 transition-colors group"
+                            className="w-8 h-8 flex items-center justify-center rounded hover:bg-red-100 transition-colors group"
                         >
-                            <X className="w-3.5 h-3.5 text-nexus-text-secondary group-hover:text-red-400" />
+                            <X className="w-3.5 h-3.5 text-nexus-text-secondary group-hover:text-red-500" />
                         </button>
                     </div>
                 )}

@@ -110,81 +110,92 @@ export function DetailModal({
                     transition={{ duration: 0.2 }}
                     className="fixed inset-0 z-50 flex bg-black/95"
                 >
-                    {/* 关闭按钮 */}
-                    <button
-                        onClick={onClose}
-                        className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                        title="关闭 (ESC)"
-                    >
-                        <X className="w-6 h-6 text-white" />
-                    </button>
-
-                    {/* 收藏按钮 */}
-                    <button
-                        onClick={() => onFavoriteToggle(item.id)}
-                        className={`absolute top-4 right-16 z-10 p-2 rounded-full transition-colors ${item.isFavorite
-                            ? 'bg-neon-pink/20 hover:bg-neon-pink/30'
-                            : 'bg-white/10 hover:bg-white/20'
-                            }`}
-                        title={item.isFavorite ? '取消收藏' : '添加收藏'}
-                    >
-                        <Heart className={`w-6 h-6 ${item.isFavorite ? 'text-neon-pink fill-neon-pink' : 'text-white'
-                            }`} />
-                    </button>
-
-                    {/* 计数器 */}
-                    <div className="absolute top-4 left-4 z-10 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm">
-                        <span className="text-white text-sm">
-                            {currentIndex + 1} / {items.length}
-                        </span>
-                    </div>
-
-                    {/* 左侧导航按钮 */}
-                    {hasPrev && (
+                    {/* 左侧预览区域容器 */}
+                    <div className="flex-1 relative flex flex-col h-full overflow-hidden">
+                        {/* 关闭按钮 */}
                         <button
-                            onClick={goToPrev}
-                            className="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                            title="上一个 (←)"
+                            onClick={onClose}
+                            className="absolute top-4 right-4 z-20 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                            title="关闭 (ESC)"
                         >
-                            <ChevronLeft className="w-8 h-8 text-white" />
+                            <X className="w-6 h-6 text-white" />
                         </button>
-                    )}
 
-                    {/* 右侧导航按钮 */}
-                    {hasNext && (
+                        {/* 收藏按钮 */}
                         <button
-                            onClick={goToNext}
-                            className="absolute right-[340px] top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                            title="下一个 (→)"
+                            onClick={() => onFavoriteToggle(item.id)}
+                            className={`absolute top-4 right-16 z-20 p-2 rounded-full transition-colors ${item.isFavorite
+                                ? 'bg-neon-pink/20 hover:bg-neon-pink/30'
+                                : 'bg-white/10 hover:bg-white/20'
+                                }`}
+                            title={item.isFavorite ? '取消收藏' : '添加收藏'}
                         >
-                            <ChevronRight className="w-8 h-8 text-white" />
+                            <Heart className={`w-6 h-6 ${item.isFavorite ? 'text-neon-pink fill-neon-pink' : 'text-white'
+                                }`} />
                         </button>
-                    )}
 
-                    {/* 主内容区域 */}
-                    <div className="flex-1 flex items-center justify-center p-16">
-                        <AnimatePresence mode="wait">
-                            <motion.div
-                                key={item.id}
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.95 }}
-                                transition={{ duration: 0.2 }}
-                                className="w-full h-full"
+                        {/* 计数器 */}
+                        <div className="absolute top-4 left-4 z-20 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm">
+                            <span className="text-white text-sm">
+                                {currentIndex + 1} / {items.length}
+                            </span>
+                        </div>
+
+                        {/* 左侧导航按钮 */}
+                        {hasPrev && (
+                            <button
+                                onClick={goToPrev}
+                                className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                                title="上一个 (←)"
                             >
-                                {item.type === 'image' ? (
-                                    <ImageViewer
-                                        src={getMediaSrc(item)}
-                                        alt={item.fileName}
-                                    />
-                                ) : (
-                                    <VideoPlayer
-                                        src={getMediaSrc(item)}
-                                        poster={item.thumbnailPath || undefined}
-                                    />
-                                )}
-                            </motion.div>
-                        </AnimatePresence>
+                                <ChevronLeft className="w-8 h-8 text-white" />
+                            </button>
+                        )}
+
+                        {/* 右侧导航按钮 */}
+                        {hasNext && (
+                            <button
+                                onClick={goToNext}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                                title="下一个 (→)"
+                            >
+                                <ChevronRight className="w-8 h-8 text-white" />
+                            </button>
+                        )}
+
+                        {/* 主内容区域 */}
+                        <div
+                            className="flex-1 flex items-center justify-center p-16 w-full h-full"
+                            onClick={(e) => {
+                                // 点击背景关闭，但忽略内容区域的点击
+                                if (e.target === e.currentTarget) {
+                                    onClose();
+                                }
+                            }}
+                        >
+                            <AnimatePresence mode="wait">
+                                <motion.div
+                                    key={item.id}
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="w-full h-full"
+                                >
+                                    {item.type === 'image' ? (
+                                        <ImageViewer
+                                            src={getMediaSrc(item)}
+                                            alt={item.fileName}
+                                        />
+                                    ) : (
+                                        <VideoPlayer
+                                            src={getMediaSrc(item)}
+                                            poster={item.thumbnailPath || undefined}
+                                        />
+                                    )}
+                                </motion.div>
+                            </AnimatePresence>
+                        </div>
                     </div>
 
                     {/* 元数据侧边栏 */}
