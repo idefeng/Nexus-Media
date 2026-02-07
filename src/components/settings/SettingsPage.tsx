@@ -17,6 +17,10 @@ interface AppConfig {
         addedAt: string
         lastScan?: string
     }>
+    exif?: {
+        enabled: boolean
+        autoExtract: boolean
+    }
     ai: {
         enabled: boolean
         useCuda: boolean
@@ -230,6 +234,37 @@ export function SettingsPage() {
                     </div>
                 </Section>
 
+                {/* EXIF Configuration */}
+                <Section icon={<Info />} title="EXIF 元数据">
+                    <div className="space-y-4">
+                        <Toggle
+                            label="自动提取 EXIF"
+                            description="扫描图片时自动提取拍摄参数和 GPS 信息"
+                            checked={config.exif?.autoExtract ?? true}
+                            onChange={async (enabled) => {
+                                await window.electronAPI.exif.toggleAuto(enabled)
+                                loadConfig()
+                            }}
+                        />
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-nexus-text font-medium">手动执行</p>
+                                <p className="text-sm text-nexus-text-muted mt-1">立即对未处理的图片运行 EXIF 提取</p>
+                            </div>
+                            <button
+                                onClick={async () => {
+                                    const result = await window.electronAPI.exif.start()
+                                    if (result.success) alert('EXIF 提取任务已在后台启动')
+                                }}
+                                className="px-4 py-2 bg-nexus-bg-secondary text-nexus-text rounded-lg hover:bg-nexus-bg-tertiary transition-colors flex items-center gap-2"
+                            >
+                                <Zap className="w-4 h-4 text-neon-cyan" />
+                                立即运行
+                            </button>
+                        </div>
+                    </div>
+                </Section>
+
                 {/* AI Configuration */}
                 <Section icon={<Cpu />} title="AI 配置">
                     <div className="space-y-4">
@@ -250,14 +285,29 @@ export function SettingsPage() {
                             label="自动分析新导入"
                             description="扫描时自动分析新添加的图片"
                             checked={config.ai.autoAnalyze}
-                            onChange={(enabled) => {
-                                window.electronAPI.config.update({
-                                    ai: { ...config.ai, autoAnalyze: enabled }
-                                })
+                            onChange={async (enabled) => {
+                                await window.electronAPI.ai.toggleAuto(enabled)
                                 loadConfig()
                             }}
                             disabled={!config.ai.enabled}
                         />
+                        <div className={`flex items-center justify-between ${!config.ai.enabled ? 'opacity-50' : ''}`}>
+                            <div>
+                                <p className="text-nexus-text font-medium">手动执行</p>
+                                <p className="text-sm text-nexus-text-muted mt-1">立即对未分析的图片运行 AI 分析</p>
+                            </div>
+                            <button
+                                onClick={async () => {
+                                    const result = await window.electronAPI.ai.start()
+                                    if (result.success) alert('AI 分析任务已在后台启动')
+                                }}
+                                disabled={!config.ai.enabled}
+                                className="px-4 py-2 bg-nexus-bg-secondary text-nexus-text rounded-lg hover:bg-nexus-bg-tertiary transition-colors flex items-center gap-2"
+                            >
+                                <Zap className="w-4 h-4 text-neon-cyan" />
+                                立即运行
+                            </button>
+                        </div>
                     </div>
                 </Section>
 
@@ -344,6 +394,43 @@ export function SettingsPage() {
                         </button>
                     </div>
                 </Section>
+
+                {/* Danger Zone */}
+                <div className="mb-8 p-6 bg-red-500/5 rounded-xl border border-red-500/20">
+                    <div className="flex items-center gap-3 mb-4">
+                        <Trash2 className="text-red-500" />
+                        <h2 className="text-xl font-bold text-nexus-text">危险区域</h2>
+                    </div>
+                    <div>
+                        <h3 className="text-nexus-text font-bold mb-1">清空数据库</h3>
+                        <p className="text-sm text-nexus-text-muted mb-4">
+                            这将重置所有媒体记录、标签和分析数据。您的原始文件不会被删除。此操作无法撤销。
+                        </p>
+                        <button
+                            onClick={async () => {
+                                if (confirm('确定要清空数据库吗？此操作无法撤销！\n\n注意：您的原始文件是安全的，不会被删除。')) {
+                                    try {
+                                        // The API call is to clearDatabase
+                                        // Assuming window.electronAPI.cleanup.clearDatabase exists as per vite-env.d.ts
+                                        const result = await (window.electronAPI as any).cleanup.clearDatabase()
+                                        if (result.success) {
+                                            alert('数据库已清空')
+                                            window.location.reload()
+                                        } else {
+                                            alert('操作失败: ' + result.error)
+                                        }
+                                    } catch (error: any) {
+                                        alert('操作失败: ' + error.message)
+                                    }
+                                }
+                            }}
+                            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2 font-bold"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            立即清空所有数据
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {/* Migration Dialog */}

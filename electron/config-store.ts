@@ -22,6 +22,12 @@ export interface AppConfig {
     // Scan directories
     scanDirectories: ScanDirectory[]
 
+    // EXIF settings
+    exif: {
+        enabled: boolean
+        autoExtract: boolean
+    }
+
     // AI settings
     ai: {
         enabled: boolean
@@ -59,6 +65,10 @@ function getDefaultConfig(): AppConfig {
             autoBackup: true
         },
         scanDirectories: [],
+        exif: {
+            enabled: true,
+            autoExtract: true
+        },
         ai: {
             enabled: true,
             useCuda: false,
@@ -103,6 +113,7 @@ function loadConfig(): AppConfig {
             return {
                 database: { ...defaults.database, ...loaded.database },
                 scanDirectories: loaded.scanDirectories || defaults.scanDirectories,
+                exif: { ...defaults.exif, ...loaded.exif },
                 ai: { ...defaults.ai, ...loaded.ai },
                 ui: { ...defaults.ui, ...loaded.ui },
                 searchHistory: loaded.searchHistory || defaults.searchHistory,

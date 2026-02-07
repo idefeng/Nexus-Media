@@ -98,18 +98,31 @@ app.whenReady().then(() => {
 
         // 启动后台任务调度器 (每10秒检查一次)
         setInterval(async () => {
+            const { configStore } = await import('./config-store')
+            const config = configStore.store
+
             // 后台任务并行启动（各自内部有 isProcessing 锁）
-            startThumbnailBatch()
-            processBackgroundAnalysis()
-            processMd5Batch()
-            processExifBatch()
+            startThumbnailBatch() // 缩略图始终需要生成
+            processMd5Batch()     // MD5 始终需要计算
+
+            // EXIF 只有在启用且自动提取时才运行
+            if (config.exif?.enabled && config.exif?.autoExtract) {
+                processExifBatch()
+            }
+
+            // AI 只有在启用且自动分析时才运行
+            if (config.ai?.enabled && config.ai?.autoAnalyze) {
+                processBackgroundAnalysis()
+            }
         }, 10000)
 
-        // 立即执行一次
+        // 立即执行一次 (检查配置)
+        // 注意：这种简单的立即执行可能不会读取到最新的配置，但 app 刚启动时配置应该是默认或已加载的
         startThumbnailBatch()
-        processBackgroundAnalysis()
         processMd5Batch()
-        processExifBatch()
+        // 初始启动时不强制运行 EXIF 和 AI，等待定时器检查或者由用户手动触发，
+        // 或者可以在这里也加配置检查，但上面定时器很快就会触发第一次。
+        // 为了保险起见，让定时器去接管。
 
     }).catch(err => {
         console.error('数据库初始化失败:', err)
@@ -665,6 +678,40 @@ ipcMain.handle('config:toggleCuda', async (_event, enabled: boolean) => {
     } catch (error: any) {
         return { success: false, error: error.message }
     }
+})
+
+// Toggle EXIF Auto
+ipcMain.handle('config:toggleExifAuto', async (_event, enabled: boolean) => {
+    try {
+        const { configStore } = await import('./config-store')
+        configStore.set('exif.autoExtract', enabled)
+        return { success: true }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+})
+
+// Manually start EXIF
+ipcMain.handle('exif:start', async () => {
+    processExifBatch() // Don't await, run in background
+    return { success: true, message: 'EXIF extraction started' }
+})
+
+// Toggle AI Auto
+ipcMain.handle('config:toggleAiAuto', async (_event, enabled: boolean) => {
+    try {
+        const { configStore } = await import('./config-store')
+        configStore.set('ai.autoAnalyze', enabled)
+        return { success: true }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+})
+
+// Manually start AI
+ipcMain.handle('ai:start', async () => {
+    processBackgroundAnalysis() // Don't await
+    return { success: true, message: 'AI analysis started' }
 })
 
 // Get app version

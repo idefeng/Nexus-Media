@@ -2,8 +2,21 @@
  * EXIF 元数据提取模块
  * 使用 exiftool-vendored 提供强大的元数据解析能力（支持图片和视频）
  */
-import { exiftool } from 'exiftool-vendored'
-import { updateExifData, getPendingExifItems } from './database'
+import { ExifTool } from 'exiftool-vendored'
+import { updateExifData, getPendingExifItems, getExifStats } from './database'
+
+// 全局 ExifTool 实例
+let exiftool: ExifTool | null = null
+
+function getExifTool() {
+    if (!exiftool) {
+        exiftool = new ExifTool({
+            taskTimeoutMillis: 30000, // 30秒超时
+            maxProcs: 2               // 允许2个并发进程
+        })
+    }
+    return exiftool
+}
 
 /**
  * EXIF 数据结构
@@ -41,11 +54,16 @@ export interface ExifData {
  */
 export async function extractExifData(filePath: string): Promise<ExifData | null> {
     try {
-        const tags = await exiftool.read(filePath)
+        const tool = getExifTool()
+        // const tags = await tool.read(filePath) // Original simple read
 
-        if (!tags) {
-            return null
-        }
+        // 强制的外部超时控制 (35秒 - 比库的 30秒 稍长，作为最后的安全网)
+        const exifPromise = tool.read(filePath)
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('HARD_TIMEOUT')), 35000))
+
+        const tags = await Promise.race([exifPromise, timeoutPromise]) as any
+
+        if (!tags) return null
 
         const result: ExifData = {
             // 相机信息
@@ -85,6 +103,15 @@ export async function extractExifData(filePath: string): Promise<ExifData | null
         return Object.keys(result).length > 0 ? result : null
     } catch (error) {
         console.error(`元数据提取失败: ${filePath}`, error)
+
+        // 仅在关键错误时重启
+        if (String(error).includes('HARD_TIMEOUT')) {
+            console.warn('[EXIF] 检测到硬超时(35s)，强制销毁 ExifTool 实例')
+            if (exiftool) {
+                exiftool.end().catch(() => { })
+                exiftool = null
+            }
+        }
         return null
     }
 }
@@ -100,22 +127,45 @@ export async function processExifBatch(): Promise<number> {
             return 0
         }
 
-        console.log(`开始处理 EXIF 元数据: ${pendingItems.length} 个待处理项`)
+        const stats = getExifStats()
+        console.log(`[EXIF] 开始批次处理: 待处理 ${stats.pending} / 总数 ${stats.total}`)
 
         let processed = 0
+
         for (const item of pendingItems) {
             try {
+                // console.log(`[EXIF Step] Processing: ${item.path}`)
+
+                // 直接调用 extractedExifData，它内部现在有了超时保护
                 const exifData = await extractExifData(item.path)
-                updateExifData(item.id, exifData || {})
+
+                // 无论是 null (失败) 还是 有数据，都标记已处理，避免死循环
+                // 如果是 null，exif_data 字段会通过 updateExifData 更新为 {} 或 null，
+                // 但为了避免下次 getPendingExifItems 再次选出它，我们需要确保数据库状态改变
+                // getPendingExifItems 选取的条件是: exif_data IS NULL OR (exif_data = '{}' AND latitude IS NULL)
+                // 所以成功的会写入内容，失败的写入 {}。
+                // 如果一直失败，我们需要一个机制防止它无限被选出... 
+                // fix: updateExifData 会更新 updated_at，我们可以结合 updated_at 来过滤最近尝试过的？
+                // 目前逻辑是：只要调了 updateExifData，就会更新 updated_at。
+                // 但 getPendingExifItems 是按 created_at 排序的。
+                // 建议：如果解析失败，写入一个特殊标记或者就是 {}。
+
+                if (exifData) {
+                    updateExifData(item.id, exifData)
+                } else {
+                    // 标记为失败，避免无限重试
+                    // 数据库查询条件是 exif_data = '{}'，所以只有存入非空内容才能避免被再次选中
+                    updateExifData(item.id, { _error: 'processing_failed' })
+                }
+
                 processed++
 
-                // 每处理10个输出一次进度
-                if (processed % 10 === 0) {
-                    console.log(`EXIF 处理进度: ${processed}/${pendingItems.length}`)
-                }
+                if (processed % 10 === 0) console.log(`[EXIF] 批次进度: ${processed}/${pendingItems.length}`)
+
             } catch (error) {
-                console.error(`处理元数据失败: ${item.path}`, error)
-                updateExifData(item.id, {})
+                console.error(`[EXIF] 处理循环异常: ${item.path} - ${error}`)
+                // 数据库层面记录错误? 目前 updateExifData 没地方记 error string
+                // 暂时仅 log
             }
         }
 
@@ -131,5 +181,8 @@ export async function processExifBatch(): Promise<number> {
  * 应用关闭时释放 exiftool 资源
  */
 export function stopExifTool() {
-    exiftool.end()
+    if (exiftool) {
+        exiftool.end()
+        exiftool = null
+    }
 }

@@ -149,7 +149,7 @@ async function generateVideoThumbnail(filePath: string, outputDir: string): Prom
 
 // 队列控制
 let isProcessing = false
-const CONCURRENCY_LIMIT = 4
+const CONCURRENCY_LIMIT = 2
 
 /**
  * 开始后台处理任务队列
@@ -178,13 +178,21 @@ export async function startThumbnailBatch() {
                     }
 
                     if (thumbPath) {
-                        updateThumbnailPath(item.id, thumbPath)
+                        try {
+                            updateThumbnailPath(item.id, thumbPath)
+                        } catch (dbErr) {
+                            console.error(`[Thumbnail] DB Update Failed for ${item.id}:`, dbErr)
+                        }
                     }
                 } catch (err) {
                     console.error(`生成缩略图失败 [${item.id}]: ${item.path}`, err)
                     // 标记为处理失败，避免无限重试
                     // 使用特殊标记 "error:" 前缀表示处理失败
-                    updateThumbnailPath(item.id, `error:${String(err).slice(0, 100)}`)
+                    try {
+                        updateThumbnailPath(item.id, `error:${String(err).slice(0, 100)}`)
+                    } catch (dbErr) {
+                        console.error(`[Thumbnail] Error Status DB Update Failed for ${item.id}:`, dbErr)
+                    }
                 }
             }))
         }

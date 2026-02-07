@@ -101,7 +101,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
         getStatus: () => ipcRenderer.invoke('ai:getStatus') as Promise<{ running: boolean; ready: boolean; pendingCount: number }>,
         analyze: (imagePath: string) => ipcRenderer.invoke('ai:analyze', imagePath),
         semanticSearch: (query: string, limit?: number) => ipcRenderer.invoke('ai:semanticSearch', query, limit || 20),
-        adoptTag: (id: number, tag: string) => ipcRenderer.invoke('ai:adoptTag', id, tag)
+        adoptTag: (id: number, tag: string) => ipcRenderer.invoke('ai:adoptTag', id, tag),
+        start: () => ipcRenderer.invoke('ai:start'),
+        toggleAuto: (enabled: boolean) => ipcRenderer.invoke('config:toggleAiAuto', enabled)
+    },
+
+    // EXIF 功能
+    exif: {
+        start: () => ipcRenderer.invoke('exif:start'),
+        toggleAuto: (enabled: boolean) => ipcRenderer.invoke('config:toggleExifAuto', enabled)
     },
 
     // Shell 操作
@@ -199,6 +207,12 @@ declare global {
                 analyze: (imagePath: string) => Promise<any>
                 semanticSearch: (query: string, limit?: number) => Promise<any>
                 adoptTag: (id: number, tag: string) => Promise<any>
+                start: () => Promise<any>
+                toggleAuto: (enabled: boolean) => Promise<any>
+            }
+            exif: {
+                start: () => Promise<any>
+                toggleAuto: (enabled: boolean) => Promise<any>
             }
             shell: {
                 showInExplorer: (filePath: string) => Promise<any>

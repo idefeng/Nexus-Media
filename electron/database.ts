@@ -626,6 +626,29 @@ export function getPendingExifItems(limit: number = 50): { id: number; path: str
     `).all(limit) as { id: number; path: string }[]
 }
 
+/**
+ * 获取 EXIF 处理进度统计
+ */
+export function getExifStats(): { total: number; processed: number; pending: number; withGps: number } {
+    const total = (db.prepare("SELECT COUNT(*) as count FROM media_items WHERE type = 'image'").get() as any).count
+    const pending = (db.prepare(`
+        SELECT COUNT(*) as count FROM media_items 
+        WHERE type = 'image' 
+          AND (
+            exif_data IS NULL 
+            OR (exif_data = '{}' AND latitude IS NULL)
+          )
+    `).get() as any).count
+    const withGps = (db.prepare("SELECT COUNT(*) as count FROM media_items WHERE type = 'image' AND latitude IS NOT NULL").get() as any).count
+
+    return {
+        total,
+        processed: total - pending,
+        pending,
+        withGps
+    }
+}
+
 // ==================== 清理助手相关函数 ====================
 
 /**
