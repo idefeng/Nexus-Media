@@ -99,6 +99,7 @@ interface Window {
         shell: {
             showInExplorer: (filePath: string) => Promise<{ success: boolean; error?: string }>
             copyPath: (filePath: string) => Promise<{ success: boolean; error?: string }>
+            shareFiles: (filePaths: string[]) => Promise<{ success: boolean; message?: string; error?: string }>
         }
         batch: {
             delete: (ids: number[]) => Promise<{ success: boolean; deleted?: number; error?: string }>
@@ -110,6 +111,7 @@ interface Window {
             getStats: () => Promise<{ success: boolean; data: any; error?: string }>
             trashItems: (ids: number[]) => Promise<{ success: boolean; successCount?: number; error?: string }>
             calculateFocusScore: (imagePath: string) => Promise<{ success: boolean; data: any; error?: string }>
+            clearDatabase: () => Promise<{ success: boolean; error?: string }>
         }
         studio: {
             generateCollage: (options: any) => Promise<any>

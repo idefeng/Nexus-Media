@@ -4,13 +4,14 @@
  */
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Tag, Trash2, Download, X, Check, Loader2 } from 'lucide-react'
+import { Tag, Trash2, Download, X, Check, Loader2, Share2 } from 'lucide-react'
 
 interface BulkActionBarProps {
     selectedCount: number
     onAddTags: (tags: string[]) => Promise<void>
     onDelete: () => Promise<void>
     onExport?: () => Promise<void>
+    onShare?: () => Promise<void>
     onClearSelection: () => void
     allTags: string[]
 }
@@ -20,6 +21,7 @@ export function BulkActionBar({
     onAddTags,
     onDelete,
     onExport,
+    onShare,
     onClearSelection,
     allTags
 }: BulkActionBarProps) {
@@ -118,6 +120,19 @@ export function BulkActionBar({
                                     >
                                         <Download className="w-4 h-4" />
                                         <span className="text-sm font-medium">导出</span>
+                                    </motion.button>
+                                )}
+
+                                {/* 分享 */}
+                                {onShare && (
+                                    <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={onShare}
+                                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-600 transition-colors"
+                                    >
+                                        <Share2 className="w-4 h-4" />
+                                        <span className="text-sm font-medium">分享</span>
                                     </motion.button>
                                 )}
 

@@ -99,7 +99,11 @@ export async function initDatabase(): Promise<void> {
 
         CREATE INDEX IF NOT EXISTS idx_media_type ON media_items(type);
         CREATE INDEX IF NOT EXISTS idx_media_favorite ON media_items(is_favorite);
+        CREATE INDEX IF NOT EXISTS idx_media_type ON media_items(type);
+        CREATE INDEX IF NOT EXISTS idx_media_favorite ON media_items(is_favorite);
         CREATE INDEX IF NOT EXISTS idx_media_created ON media_items(created_at);
+        -- 针对智能扫描的索引 (尺寸 + 修改时间)
+        CREATE INDEX IF NOT EXISTS idx_media_signature ON media_items(size, modified_time);
 
         CREATE TABLE IF NOT EXISTS persons (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -172,7 +176,93 @@ export function getAllMediaItems(): MediaItemRecord[] {
 }
 
 /**
- * 批量插入媒体项
+ * 智能合并媒体项 (支持移动/重命名)
+ * @returns { inserted: number, restored: number }
+ */
+export function smartMergeFiles(files: ScannedFile[]): { inserted: number, restored: number } {
+    if (files.length === 0) return { inserted: 0, restored: 0 }
+
+    let insertedCount = 0
+    let restoredCount = 0
+
+    // 预备语句
+    const checkPath = db.prepare('SELECT id FROM media_items WHERE path = ?')
+    const findCandidate = db.prepare('SELECT * FROM media_items WHERE size = ? AND modified_time = ?')
+
+    // 更新原有记录的 SQL
+    const updatePath = db.prepare(`
+        UPDATE media_items 
+        SET path = @path, 
+            name = @name, 
+            ext = @ext, 
+            updated_at = CURRENT_TIMESTAMP 
+        WHERE id = @id
+    `)
+
+    // 插入新记录的 SQL
+    const insert = db.prepare(`
+        INSERT INTO media_items (
+            path, name, size, type, ext, birth_time, modified_time
+        ) VALUES (
+            @path, @name, @size, @type, @ext, @birthTime, @modifiedTime
+        )
+    `)
+
+    const transaction = db.transaction((items: ScannedFile[]) => {
+        for (const item of items) {
+            try {
+                // 1. 检查路径是否已存在
+                const existing = checkPath.get(item.path)
+                if (existing) {
+                    // 文件已存在，暂不更新元数据 (或者可以在这里更新 modified_time)
+                    continue
+                }
+
+                // 2. 尝试寻找"丢失"的文件 (相同大小 + 相同修改时间)
+                const modifiedTimeStr = item.modifiedTime instanceof Date ? item.modifiedTime.toISOString() : item.modifiedTime
+                const candidates = findCandidate.all(item.size, modifiedTimeStr) as MediaItemRecord[]
+
+                let matchFound = false
+
+                for (const candidate of candidates) {
+                    // 关键检查：如果候选记录的旧路径在磁盘上已经不存在了，说明这极大可能是移动操作
+                    if (!fs.existsSync(candidate.path)) {
+                        // 找到匹配！更新旧记录的路径
+                        updatePath.run({
+                            id: candidate.id,
+                            path: item.path,
+                            name: item.name,
+                            ext: item.ext
+                        })
+                        matchFound = true
+                        restoredCount++
+                        // console.log(`[SmartScan] Recovered metadata: ${candidate.path} -> ${item.path}`)
+                        break // 只要找到一个匹配就停止
+                    }
+                }
+
+                // 3. 如果没找到匹配，作为新文件插入
+                if (!matchFound) {
+                    insert.run({
+                        ...item,
+                        birthTime: item.birthTime instanceof Date ? item.birthTime.toISOString() : item.birthTime,
+                        modifiedTime: modifiedTimeStr
+                    })
+                    insertedCount++
+                }
+
+            } catch (err) {
+                console.error('智能导入失败:', item.path, err)
+            }
+        }
+    })
+
+    transaction(files)
+    return { inserted: insertedCount, restored: restoredCount }
+}
+
+/**
+ * 批量插入媒体项 (旧版保留作为兼容)
  */
 export function insertMediaItems(files: ScannedFile[]): number {
     if (files.length === 0) return 0
@@ -354,6 +444,24 @@ export function deleteMediaItems(ids: number[]): number {
     const placeholders = ids.map(() => '?').join(',')
     const result = db.prepare(`DELETE FROM media_items WHERE id IN (${placeholders})`).run(...ids)
     return result.changes
+}
+
+/**
+ * 清空所有数据库记录 (危险操作)
+ */
+export function clearDatabase(): void {
+    const transaction = db.transaction(() => {
+        // 先删除从表
+        db.prepare('DELETE FROM faces').run()
+
+        // 删除主表
+        db.prepare('DELETE FROM persons').run()
+        db.prepare('DELETE FROM media_items').run()
+
+        // 重置自增 ID
+        db.prepare("DELETE FROM sqlite_sequence WHERE name IN ('faces', 'persons', 'media_items')").run()
+    })
+    transaction()
 }
 
 /**

@@ -103,7 +103,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Shell 操作
     shell: {
         showInExplorer: (filePath: string) => ipcRenderer.invoke('shell:showInExplorer', filePath),
-        copyPath: (filePath: string) => ipcRenderer.invoke('shell:copyPath', filePath)
+        copyPath: (filePath: string) => ipcRenderer.invoke('shell:copyPath', filePath),
+        shareFiles: (filePaths: string[]) => ipcRenderer.invoke('shell:shareFiles', filePaths)
     },
 
     // 批量操作
@@ -118,7 +119,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
         analyze: () => ipcRenderer.invoke('cleanup:analyze'),
         getStats: () => ipcRenderer.invoke('cleanup:getStats'),
         trashItems: (ids: number[]) => ipcRenderer.invoke('cleanup:trashItems', ids),
-        calculateFocusScore: (imagePath: string) => ipcRenderer.invoke('cleanup:calculateFocusScore', imagePath)
+        calculateFocusScore: (imagePath: string) => ipcRenderer.invoke('cleanup:calculateFocusScore', imagePath),
+        clearDatabase: () => ipcRenderer.invoke('database:clear')
     },
 
     // 创意工作室
@@ -170,6 +172,7 @@ declare global {
             shell: {
                 showInExplorer: (filePath: string) => Promise<any>
                 copyPath: (filePath: string) => Promise<any>
+                shareFiles: (filePaths: string[]) => Promise<{ success: boolean; message?: string; error?: string }>
             }
             batch: {
                 delete: (ids: number[]) => Promise<any>
@@ -181,6 +184,7 @@ declare global {
                 getStats: () => Promise<any>
                 trashItems: (ids: number[]) => Promise<any>
                 calculateFocusScore: (imagePath: string) => Promise<any>
+                clearDatabase: () => Promise<{ success: boolean; error?: string }>
             }
             studio: {
                 generateCollage: (options: {

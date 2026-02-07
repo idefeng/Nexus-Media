@@ -9,7 +9,8 @@ import {
     Copy,
     Heart,
     Trash2,
-    Tag
+    Tag,
+    Share2
 } from 'lucide-react'
 
 export interface ContextMenuItem {
@@ -118,6 +119,7 @@ export function createMediaContextMenuItems(
         onToggleFavorite: () => void
         onDelete: () => void
         onAddTag?: () => void
+        onShare?: () => void
     }
 ): ContextMenuItem[] {
     return [
@@ -139,6 +141,12 @@ export function createMediaContextMenuItems(
             icon: <Heart className={`w-4 h-4 ${isFavorite ? 'fill-red-500 text-red-500' : ''}`} />,
             onClick: handlers.onToggleFavorite
         },
+        ...(handlers.onShare ? [{
+            id: 'share',
+            label: '分享...',
+            icon: <Share2 className="w-4 h-4" />,
+            onClick: handlers.onShare
+        }] : []),
         ...(handlers.onAddTag ? [{
             id: 'add-tag',
             label: '添加标签',

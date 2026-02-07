@@ -11,6 +11,7 @@ import {
     Camera, MapPin, Aperture, Timer, Gauge
 } from 'lucide-react'
 import { TagInput } from './TagInput'
+import { Share2 } from 'lucide-react'
 import type { MediaItem } from '../../types'
 
 interface MetadataSidebarProps {
@@ -19,6 +20,7 @@ interface MetadataSidebarProps {
     onTagsChange: (tags: string[]) => void
     onNotesChange: (notes: string) => void
     onAdoptAiTag?: (tag: string) => void
+    onShare?: (item: MediaItem) => void
 }
 
 // 格式化文件大小
@@ -60,7 +62,7 @@ function openMapLink(lat: number, lng: number) {
     window.open(url, '_blank')
 }
 
-export function MetadataSidebar({ item, allTags, onTagsChange, onNotesChange, onAdoptAiTag }: MetadataSidebarProps) {
+export function MetadataSidebar({ item, allTags, onTagsChange, onNotesChange, onAdoptAiTag, onShare }: MetadataSidebarProps) {
     const [notes, setNotes] = useState(item.notes || '')
     const [isEditing, setIsEditing] = useState(false)
     const [hasChanges, setHasChanges] = useState(false)
@@ -113,6 +115,15 @@ export function MetadataSidebar({ item, allTags, onTagsChange, onNotesChange, on
                 <p className="text-nexus-text-muted text-sm mt-1">
                     {item.type === 'image' ? '图片' : '视频'} • {item.ext.toUpperCase()}
                 </p>
+                {onShare && (
+                    <button
+                        onClick={() => onShare(item)}
+                        className="mt-3 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition-all text-sm font-medium w-full justify-center"
+                    >
+                        <Share2 className="w-4 h-4" />
+                        分享文件
+                    </button>
+                )}
             </div>
 
             {/* 可滚动内容区 */}

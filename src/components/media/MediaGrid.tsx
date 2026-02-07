@@ -20,6 +20,7 @@ interface MediaGridProps {
     onDeleteItem?: (id: number) => Promise<void>
     onBatchDelete?: (ids: number[]) => Promise<void>
     onBatchAddTags?: (ids: number[], tags: string[]) => Promise<void>
+    onShare?: (ids: number[]) => Promise<void>
     onRefresh?: () => void
     allTags?: string[]
 }
@@ -45,6 +46,7 @@ export function MediaGrid({
     onDeleteItem,
     onBatchDelete,
     onBatchAddTags,
+    onShare,
     onRefresh,
     allTags = []
 }: MediaGridProps) {
@@ -162,6 +164,11 @@ export function MediaGrid({
         onFavoriteToggle(contextMenu.item.id)
     }
 
+    const handleShareFromMenu = async () => {
+        if (!contextMenu.item) return
+        await onShare?.([contextMenu.item.id])
+    }
+
     // 批量操作
     const handleBatchDelete = async () => {
         if (selectedIds.size === 0) return
@@ -176,6 +183,11 @@ export function MediaGrid({
         onRefresh?.()
     }
 
+    const handleBatchShare = async () => {
+        if (selectedIds.size === 0) return
+        await onShare?.(Array.from(selectedIds))
+    }
+
     // 生成右键菜单项
     const menuItems = contextMenu.item ? createMediaContextMenuItems(
         contextMenu.item.path,
@@ -184,7 +196,8 @@ export function MediaGrid({
             onShowInExplorer: handleShowInExplorer,
             onCopyPath: handleCopyPath,
             onToggleFavorite: handleToggleFavoriteFromMenu,
-            onDelete: handleDeleteFromMenu
+            onDelete: handleDeleteFromMenu,
+            onShare: handleShareFromMenu
         }
     ) : []
 
@@ -290,6 +303,7 @@ export function MediaGrid({
                 selectedCount={selectedIds.size}
                 onAddTags={handleBatchAddTags}
                 onDelete={handleBatchDelete}
+                onShare={handleBatchShare}
                 onClearSelection={handleClearSelection}
                 allTags={allTags}
             />

@@ -344,6 +344,15 @@ export async function processBackgroundAnalysis(): Promise<void> {
 
         for (const item of pendingItems) {
             try {
+                // 0. 预检查：如果文件不存在，直接跳过并标记数据库
+                if (!fs.existsSync(item.path)) {
+                    console.warn(`文件不存在，跳过 AI 分析: ${item.path}`)
+                    // 可以选择在这里直接清理数据库，或者只是暂时跳过
+                    // 为防止重复查询，我们临时给它打个标记 (可选)
+                    updateAiTags(item.id, ['_FILE_MISSING_'])
+                    continue
+                }
+
                 // 1. 基础分析 (CLIP)
                 const result = await analyzeImage(item.path)
                 if (result.success && result.tags && result.embedding) {

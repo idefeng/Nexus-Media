@@ -6,11 +6,11 @@ import { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, clipboard } 
 import path from 'path'
 import { pathToFileURL } from 'url'
 import {
-    initDatabase, insertMediaItems, getAllMediaItems, getMediaStats, getMediaCount,
+    initDatabase, insertMediaItems, smartMergeFiles, getAllMediaItems, getMediaStats, getMediaCount,
     toggleFavorite, updateTags, updateNotes, getAllTags, getMediaItem, closeDatabase,
     updateAiTags, getPendingAiItems, deleteMediaItem, deleteMediaItems, batchAddTags,
     updateMd5Hash, updateFocusScore, getCleanupStats, getExactDuplicates, getLowQualityItems,
-    getAllPersons, updatePersonName, getSocialGraphData, getSharedMedia
+    getAllPersons, updatePersonName, getSocialGraphData, getSharedMedia, clearDatabase
 } from './database'
 import { scanFolders, type ScannedFile, type ScanProgress } from './scanner'
 import { initThumbnailsDir, startThumbnailBatch } from './thumbnails'
@@ -66,10 +66,21 @@ function createWindow() {
 // 应用启动
 app.whenReady().then(() => {
     // 注册协议处理
+
     protocol.handle('nexus-media', (request) => {
-        const url = request.url.replace('nexus-media://local/', '')
-        const decodedPath = decodeURIComponent(url)
-        return net.fetch(pathToFileURL(decodedPath).toString())
+        try {
+            const url = request.url.replace('nexus-media://local/', '')
+            const decodedPath = decodeURIComponent(url)
+
+            // 确保 Windows 路径的正确性
+            // net.fetch 需要标准的 file:/// URL
+            const fileUrl = pathToFileURL(decodedPath).toString()
+
+            return net.fetch(fileUrl)
+        } catch (error) {
+            console.error('Protocol error:', error)
+            return new Response('Not Found', { status: 404 })
+        }
     })
 
     createWindow()
@@ -146,8 +157,9 @@ ipcMain.handle('scan:folders', async (_event, folderPaths: string[]) => {
             mainWindow?.webContents.send('scan:progress', progress)
         })
 
-        // 将结果同步到数据库
-        const count = insertMediaItems(results)
+        // 将结果同步到数据库 (使用智能合并)
+        const { inserted, restored } = smartMergeFiles(results)
+        console.log(`扫描完成: ${results.length} 个文件, 新增: ${inserted}, 恢复: ${restored}`)
 
         const stats = getMediaStats()
         const info = {
@@ -273,6 +285,83 @@ ipcMain.handle('shell:copyPath', async (_event, filePath) => {
     }
 })
 
+ipcMain.handle('shell:shareFiles', async (_event, filePaths: string[]) => {
+    try {
+        if (process.platform === 'win32') {
+            // Windows: 使用 PowerShell 将文件作为 CF_HDROP 复制到剪贴板，模拟"复制文件"操作
+            // 这样用户可以直接在社交软件(微信/QQ/Discord)中粘贴
+
+            // 需要添加 Add-Type 来加载 System.Windows.Forms
+            const psScript = `
+                Add-Type -AssemblyName System.Windows.Forms;
+                $files = @(${filePaths.map(p => `'${p.replace(/'/g, "''")}'`).join(',')});
+                $fileList = New-Object System.Collections.Specialized.StringCollection;
+                foreach ($file in $files) {
+                    if (Test-Path $file) {
+                        [void]$fileList.Add($file);
+                    }
+                }
+                if ($fileList.Count -gt 0) {
+                    [System.Windows.Forms.Clipboard]::SetFileDropList($fileList);
+                    Write-Output "SUCCESS";
+                } else {
+                    Write-Error "No valid files found";
+                    exit 1;
+                }
+            `
+
+            const { spawn } = require('child_process')
+            const child = spawn('powershell', [
+                '-NoProfile',
+                '-NonInteractive',
+                '-ExecutionPolicy', 'Bypass',
+                '-Command', psScript
+            ])
+
+            let stdout = ''
+            let stderr = ''
+
+            child.stdout.on('data', (data: Buffer) => {
+                stdout += data.toString()
+            })
+
+            child.stderr.on('data', (data: Buffer) => {
+                stderr += data.toString()
+            })
+
+            return new Promise((resolve) => {
+                child.on('close', (code: number) => {
+                    if (code === 0 && stdout.includes('SUCCESS')) {
+                        resolve({
+                            success: true,
+                            message: `已复制 ${filePaths.length} 个文件到剪贴板，可直接在社交软件中粘贴`
+                        })
+                    } else {
+                        console.error('PowerShell stderr:', stderr)
+                        resolve({
+                            success: false,
+                            error: stderr || '复制到剪贴板失败'
+                        })
+                    }
+                })
+
+                child.on('error', (err: Error) => {
+                    resolve({
+                        success: false,
+                        error: `PowerShell 执行失败: ${err.message}`
+                    })
+                })
+            })
+        } else {
+            // macOS / Linux: 即使不支持 Native Share, 至少可以复制路径
+            clipboard.writeText(filePaths.join('\n'))
+            return { success: true, message: '文件路径已复制到剪贴板' }
+        }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+})
+
 // 批量操作
 ipcMain.handle('media:batchDelete', async (_event, ids) => {
     return await trashMediaItems(ids)
@@ -289,6 +378,17 @@ ipcMain.handle('media:batchAddTags', async (_event, ids, tags) => {
 
 ipcMain.handle('media:delete', async (_event, id) => {
     return await trashMediaItems([id])
+})
+
+// 数据库维护
+ipcMain.handle('database:clear', async () => {
+    try {
+        clearDatabase()
+        console.log('Database cleared completely.')
+        return { success: true }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
 })
 
 // 清理助手

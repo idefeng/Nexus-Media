@@ -22,6 +22,7 @@ interface DetailModalProps {
     onFavoriteToggle: (id: number) => void
     onAdoptAiTag?: (id: number, tag: string) => void
     onDeleteItem?: (id: number) => Promise<void>
+    onShare?: (items: MediaItem[]) => void
 }
 
 export function DetailModal({
@@ -35,7 +36,8 @@ export function DetailModal({
     onNotesChange,
     onFavoriteToggle,
     onAdoptAiTag,
-    onDeleteItem
+    onDeleteItem,
+    onShare
 }: DetailModalProps) {
     // 当前索引
     const currentIndex = useMemo(() => {
@@ -247,6 +249,7 @@ export function DetailModal({
                         onTagsChange={(tags) => onTagsChange(item.id, tags)}
                         onNotesChange={(notes) => onNotesChange(item.id, notes)}
                         onAdoptAiTag={onAdoptAiTag ? (tag) => onAdoptAiTag(item.id, tag) : undefined}
+                        onShare={onShare ? () => onShare([item]) : undefined}
                     />
                 </motion.div>
             )}

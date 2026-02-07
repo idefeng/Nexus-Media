@@ -447,6 +447,42 @@ function App() {
         }
     }
 
+    // 分享功能
+    const handleShare = async (itemsToShare: MediaItem[] | number[]) => {
+        if (!window.electronAPI) return
+
+        // 统一转换为路径数组
+        let paths: string[] = []
+        if (itemsToShare.length > 0) {
+            if (typeof itemsToShare[0] === 'number') {
+                // 如果是 ID 数组，从 mediaItems 中查找路径
+                const ids = new Set(itemsToShare as number[])
+                paths = mediaItems.filter(item => ids.has(item.id)).map(item => item.path)
+            } else {
+                // 如果是 MediaItem 对象数组
+                paths = (itemsToShare as MediaItem[]).map(item => item.path)
+            }
+        }
+
+        if (paths.length === 0) return
+
+        try {
+            // 首先尝试调用本地分享 (如果支持)
+            const result = await window.electronAPI.shell.shareFiles(paths)
+
+            if (result.success) {
+                // 简单的 Toast 提示 (这里用 alert 代替，或者可以集成第三方 Toast 库)
+                alert(result.message || '已复制到剪贴板，可直接在社交软件中粘贴')
+            } else {
+                console.error('分享失败:', result.error)
+                alert('分享失败: ' + result.error)
+            }
+        } catch (error) {
+            console.error('分享操作异常:', error)
+            alert('分享操作异常')
+        }
+    }
+
     return (
         <div className="h-screen w-screen flex flex-col bg-nexus-bg overflow-hidden">
             {/* 顶部栏 */}
@@ -504,6 +540,7 @@ function App() {
                             onDeleteItem={handleDeleteItem}
                             onBatchDelete={handleBatchDelete}
                             onBatchAddTags={handleBatchAddTags}
+                            onShare={handleShare}
                             onRefresh={loadMediaFromDB}
                             allTags={allTags}
                         />
@@ -532,6 +569,7 @@ function App() {
                 onFavoriteToggle={handleFavoriteToggle}
                 onAdoptAiTag={handleAdoptAiTag}
                 onDeleteItem={handleDeleteItem}
+                onShare={handleShare}
             />
 
             {/* 底部装饰 - 极简风格不需要强光晕，可以使用极淡的渐变背景或留白 */}
