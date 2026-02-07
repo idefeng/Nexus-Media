@@ -531,6 +531,7 @@ function App() {
                 onNotesChange={handleNotesChange}
                 onFavoriteToggle={handleFavoriteToggle}
                 onAdoptAiTag={handleAdoptAiTag}
+                onDeleteItem={handleDeleteItem}
             />
 
             {/* 底部装饰 - 极简风格不需要强光晕，可以使用极淡的渐变背景或留白 */}

@@ -265,12 +265,7 @@ ipcMain.handle('shell:copyPath', async (_event, filePath) => {
 
 // 批量操作
 ipcMain.handle('media:batchDelete', async (_event, ids) => {
-    try {
-        const count = deleteMediaItems(ids)
-        return { success: true, deleted: count }
-    } catch (error: any) {
-        return { success: false, error: error.message }
-    }
+    return await trashMediaItems(ids)
 })
 
 ipcMain.handle('media:batchAddTags', async (_event, ids, tags) => {
@@ -283,12 +278,7 @@ ipcMain.handle('media:batchAddTags', async (_event, ids, tags) => {
 })
 
 ipcMain.handle('media:delete', async (_event, id) => {
-    try {
-        const success = deleteMediaItem(id)
-        return { success: true }
-    } catch (error: any) {
-        return { success: false, error: error.message }
-    }
+    return await trashMediaItems([id])
 })
 
 // 清理助手

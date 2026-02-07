@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, ChevronLeft, ChevronRight, Heart } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Heart, Trash2 } from 'lucide-react'
 import { ImageViewer } from './ImageViewer'
 import { VideoPlayer } from './VideoPlayer'
 import { MetadataSidebar } from './MetadataSidebar'
@@ -21,6 +21,7 @@ interface DetailModalProps {
     onNotesChange: (id: number, notes: string) => void
     onFavoriteToggle: (id: number) => void
     onAdoptAiTag?: (id: number, tag: string) => void
+    onDeleteItem?: (id: number) => Promise<void>
 }
 
 export function DetailModal({
@@ -33,7 +34,8 @@ export function DetailModal({
     onTagsChange,
     onNotesChange,
     onFavoriteToggle,
-    onAdoptAiTag
+    onAdoptAiTag,
+    onDeleteItem
 }: DetailModalProps) {
     // 当前索引
     const currentIndex = useMemo(() => {
@@ -58,6 +60,32 @@ export function DetailModal({
             onNavigate(items[currentIndex + 1])
         }
     }, [hasNext, items, currentIndex, onNavigate])
+
+    // 处理删除项目
+    const handleDelete = useCallback(async () => {
+        if (!item || !onDeleteItem) return;
+
+        // 简单的确认对话框
+        if (!confirm('确定要从图库中删除此文件吗？此操作不可撤销。')) return;
+
+        try {
+            const idToDelete = item.id;
+
+            // 如果有下一个，先跳转到下一个，否则尝试跳转到上一个
+            if (hasNext) {
+                goToNext();
+            } else if (hasPrev) {
+                goToPrev();
+            } else {
+                onClose();
+            }
+
+            // 执行实际删除逻辑
+            await onDeleteItem(idToDelete);
+        } catch (error) {
+            console.error('删除操作失败:', error);
+        }
+    }, [item, onDeleteItem, hasNext, hasPrev, goToNext, goToPrev, onClose])
 
     // 键盘快捷键
     useEffect(() => {
@@ -133,6 +161,20 @@ export function DetailModal({
                             <Heart className={`w-6 h-6 ${item.isFavorite ? 'text-neon-pink fill-neon-pink' : 'text-white'
                                 }`} />
                         </button>
+
+                        {/* 删除按钮 */}
+                        {onDeleteItem && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete();
+                                }}
+                                className="absolute top-4 right-28 z-20 p-2 rounded-full bg-white/10 hover:bg-red-500/20 hover:text-red-500 transition-colors group"
+                                title="从图库中删除"
+                            >
+                                <Trash2 className="w-6 h-6 text-white group-hover:text-red-500" />
+                            </button>
+                        )}
 
                         {/* 计数器 */}
                         <div className="absolute top-4 left-4 z-20 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm">
