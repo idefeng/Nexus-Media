@@ -12,25 +12,47 @@ import { app } from 'electron'
 import { updateThumbnailPath, getPendingThumbnailItems } from './database'
 
 // 设置 ffmpeg 路径
-if (ffmpegPath) {
-    // 修复可能的路径问题（特别是如果使用了 asar 打包）
-    const fixedPath = ffmpegPath.replace('app.asar', 'app.asar.unpacked')
+// 查找可用 FFmpeg 路径的函数
+function getFFmpegPath(): string | null {
+    const possiblePaths: string[] = []
 
-    if (fs.existsSync(fixedPath)) {
-        console.log('FFmpeg binary found at:', fixedPath)
-        ffmpeg.setFfmpegPath(fixedPath)
-    } else {
-        console.error('FFmpeg binary not found at:', fixedPath)
-        // 尝试使用原始路径
-        if (fs.existsSync(ffmpegPath)) {
-            console.log('Using original FFmpeg path:', ffmpegPath)
-            ffmpeg.setFfmpegPath(ffmpegPath)
-        } else {
-            console.warn('FFmpeg static binary not found on disk. Relying on system PATH.')
+    // 1. 优先检查 ffmpeg-static 提供的路径
+    if (ffmpegPath) {
+        // 修复 asar 路径问题
+        const fixedPath = ffmpegPath.replace('app.asar', 'app.asar.unpacked')
+        possiblePaths.push(fixedPath)
+        possiblePaths.push(ffmpegPath)
+    }
+
+    // 2. 检查开发环境常见的备选路径
+    possiblePaths.push(
+        path.join(process.cwd(), 'node_modules', '.ignored', 'ffmpeg-static', 'ffmpeg.exe'),
+        path.join(process.cwd(), 'node_modules', 'ffmpeg-static', 'ffmpeg.exe'),
+        path.join(path.dirname(__dirname), 'node_modules', 'ffmpeg-static', 'ffmpeg.exe'), // dist-electron/../node_modules
+        // 针对打包后的环境
+        path.join(process.resourcesPath, 'ffmpeg.exe'),
+        path.join(process.resourcesPath, 'bin', 'ffmpeg.exe')
+    )
+
+    // 尝试遍历所有可能的路径
+    for (const p of possiblePaths) {
+        if (p && fs.existsSync(p)) {
+            console.log('Found FFmpeg binary at:', p)
+            return p
         }
     }
+
+    return null
+}
+
+const resolvedFFmpegPath = getFFmpegPath()
+
+if (resolvedFFmpegPath) {
+    ffmpeg.setFfmpegPath(resolvedFFmpegPath)
 } else {
-    console.warn('ffmpeg-static did not return a path. Relying on system PATH.')
+    console.error('CRITICAL: FFmpeg binary not found in any known location. Video processing will FAIL.')
+    // 最后的尝试：如果系统环境变量里有
+    ffmpeg.setFfmpegPath('ffmpeg')
 }
 
 // 缩略图目录
