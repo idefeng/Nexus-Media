@@ -68,12 +68,15 @@ export async function initDatabase(): Promise<void> {
             is_favorite INTEGER DEFAULT 0,
             ai_tags TEXT DEFAULT NULL,
             embedding BLOB DEFAULT NULL,
-            exif_data TEXT DEFAULT NULL
+            exif_data TEXT DEFAULT NULL,
+            md5_hash TEXT DEFAULT NULL,
+            focus_score REAL DEFAULT NULL
         );
 
         CREATE INDEX IF NOT EXISTS idx_media_type ON media_items(type);
         CREATE INDEX IF NOT EXISTS idx_media_favorite ON media_items(is_favorite);
         CREATE INDEX IF NOT EXISTS idx_media_created ON media_items(created_at);
+        CREATE INDEX IF NOT EXISTS idx_media_md5 ON media_items(md5_hash);
     `
     db.exec(schema)
 
@@ -95,6 +98,17 @@ export async function initDatabase(): Promise<void> {
         if (!columnNames.includes('exif_data')) {
             db.exec('ALTER TABLE media_items ADD COLUMN exif_data TEXT DEFAULT NULL')
             console.log('数据库迁移：添加 exif_data 列')
+        }
+
+        if (!columnNames.includes('md5_hash')) {
+            db.exec('ALTER TABLE media_items ADD COLUMN md5_hash TEXT DEFAULT NULL')
+            db.exec('CREATE INDEX IF NOT EXISTS idx_media_md5 ON media_items(md5_hash)')
+            console.log('数据库迁移：添加 md5_hash 列')
+        }
+
+        if (!columnNames.includes('focus_score')) {
+            db.exec('ALTER TABLE media_items ADD COLUMN focus_score REAL DEFAULT NULL')
+            console.log('数据库迁移：添加 focus_score 列')
         }
     } catch (err) {
         console.error('数据库迁移失败:', err)
@@ -341,6 +355,147 @@ export function getPendingExifItems(limit: number = 50): { id: number; path: str
         ORDER BY created_at DESC 
         LIMIT ?
     `).all(limit) as { id: number; path: string }[]
+}
+
+// ==================== 清理助手相关函数 ====================
+
+/**
+ * 更新 MD5 哈希值
+ */
+export function updateMd5Hash(id: number, hash: string): void {
+    db.prepare('UPDATE media_items SET md5_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(hash, id)
+}
+
+/**
+ * 更新清晰度评分
+ */
+export function updateFocusScore(id: number, score: number): void {
+    db.prepare('UPDATE media_items SET focus_score = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(score, id)
+}
+
+/**
+ * 获取待计算 MD5 的媒体项
+ */
+export function getPendingMd5Items(limit: number = 50): { id: number; path: string }[] {
+    return db.prepare(`
+        SELECT id, path FROM media_items 
+        WHERE md5_hash IS NULL 
+        ORDER BY created_at DESC 
+        LIMIT ?
+    `).all(limit) as { id: number; path: string }[]
+}
+
+/**
+ * 获取待计算清晰度的图片
+ */
+export function getPendingFocusItems(limit: number = 30): { id: number; path: string }[] {
+    return db.prepare(`
+        SELECT id, path FROM media_items 
+        WHERE type = 'image' 
+          AND focus_score IS NULL 
+        ORDER BY created_at DESC 
+        LIMIT ?
+    `).all(limit) as { id: number; path: string }[]
+}
+
+/**
+ * 获取精确重复文件（基于 MD5 哈希）
+ */
+export function getExactDuplicates(): { hash: string; count: number; totalSize: number; items: MediaItemRecord[] }[] {
+    // 先找出有重复的哈希值
+    const duplicateHashes = db.prepare(`
+        SELECT md5_hash, COUNT(*) as count, SUM(size) as total_size
+        FROM media_items 
+        WHERE md5_hash IS NOT NULL 
+        GROUP BY md5_hash 
+        HAVING COUNT(*) > 1
+        ORDER BY total_size DESC
+    `).all() as { md5_hash: string; count: number; total_size: number }[]
+
+    // 获取每个哈希值对应的所有文件
+    const result: { hash: string; count: number; totalSize: number; items: MediaItemRecord[] }[] = []
+
+    for (const dup of duplicateHashes) {
+        const items = db.prepare(`
+            SELECT * FROM media_items WHERE md5_hash = ? ORDER BY created_at ASC
+        `).all(dup.md5_hash) as MediaItemRecord[]
+
+        result.push({
+            hash: dup.md5_hash,
+            count: dup.count,
+            totalSize: dup.total_size,
+            items
+        })
+    }
+
+    return result
+}
+
+/**
+ * 获取所有有 embedding 的图片用于相似度分析
+ */
+export function getItemsWithEmbedding(): { id: number; path: string; embedding: Buffer; size: number }[] {
+    return db.prepare(`
+        SELECT id, path, embedding, size FROM media_items 
+        WHERE type = 'image' AND embedding IS NOT NULL
+        ORDER BY created_at DESC
+    `).all() as { id: number; path: string; embedding: Buffer; size: number }[]
+}
+
+/**
+ * 获取低质量图片（模糊或曝光异常）
+ * @param threshold 清晰度阈值，低于此值视为模糊 (默认 100)
+ */
+export function getLowQualityItems(threshold: number = 100): MediaItemRecord[] {
+    return db.prepare(`
+        SELECT * FROM media_items 
+        WHERE type = 'image' 
+          AND focus_score IS NOT NULL 
+          AND focus_score < ?
+        ORDER BY focus_score ASC
+    `).all(threshold) as MediaItemRecord[]
+}
+
+/**
+ * 获取清理统计信息
+ */
+export function getCleanupStats(): {
+    duplicateGroups: number
+    duplicateFiles: number
+    duplicateSize: number
+    lowQualityCount: number
+    totalCount: number
+} {
+    // 重复文件统计
+    const dupStats = db.prepare(`
+        SELECT COUNT(*) as groups, SUM(cnt - 1) as files, SUM(size_sum) as total_size
+        FROM (
+            SELECT md5_hash, COUNT(*) as cnt, SUM(size) as size_sum
+            FROM media_items 
+            WHERE md5_hash IS NOT NULL 
+            GROUP BY md5_hash 
+            HAVING COUNT(*) > 1
+        )
+    `).get() as { groups: number; files: number; total_size: number }
+
+    // 低质量图片统计
+    const lowQuality = db.prepare(`
+        SELECT COUNT(*) as count FROM media_items 
+        WHERE type = 'image' AND focus_score IS NOT NULL AND focus_score < 100
+    `).get() as { count: number }
+
+    // 总数
+    const total = db.prepare('SELECT COUNT(*) as count FROM media_items').get() as { count: number }
+
+    return {
+        duplicateGroups: dupStats.groups || 0,
+        duplicateFiles: dupStats.files || 0,
+        duplicateSize: dupStats.total_size || 0,
+        lowQualityCount: lowQuality.count || 0,
+        totalCount: total.count || 0
+    }
 }
 
 /**

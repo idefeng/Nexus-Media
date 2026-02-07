@@ -115,6 +115,16 @@ app.whenReady().then(async () => {
         }, 20000)
     })
 
+    // 启动后台 MD5 哈希计算任务（每 15 秒检查一次）
+    import('./cleanup').then(({ processMd5Batch }) => {
+        // 初始处理
+        processMd5Batch().catch(err => console.error('MD5 计算错误:', err))
+        // 定期处理
+        setInterval(() => {
+            processMd5Batch().catch(err => console.error('MD5 计算错误:', err))
+        }, 15000)
+    })
+
     createWindow()
 
     app.on('activate', () => {
@@ -420,6 +430,90 @@ ipcMain.handle('media:batchAddTags', (_event, ids: number[], tags: string[]) => 
         return { success: true, updated }
     } catch (error) {
         console.error('批量添加标签失败:', error)
+        return { success: false, error: String(error) }
+    }
+})
+
+// ==================== 清理助手 ====================
+
+// 获取清理分析结果
+ipcMain.handle('cleanup:analyze', async () => {
+    try {
+        const { analyzeCleanup } = await import('./cleanup')
+        const analysis = analyzeCleanup()
+        return { success: true, data: analysis }
+    } catch (error) {
+        console.error('清理分析失败:', error)
+        return { success: false, error: String(error) }
+    }
+})
+
+// 获取清理统计
+ipcMain.handle('cleanup:getStats', () => {
+    try {
+        const { getCleanupStats } = require('./database')
+        const stats = getCleanupStats()
+        return { success: true, data: stats }
+    } catch (error) {
+        console.error('获取清理统计失败:', error)
+        return { success: false, error: String(error) }
+    }
+})
+
+// 批量删除到回收站（清理助手专用）
+ipcMain.handle('cleanup:trashItems', async (_event, ids: number[]) => {
+    try {
+        let successCount = 0
+        let failCount = 0
+        const errors: string[] = []
+
+        for (const id of ids) {
+            const item = getMediaItem(id)
+            if (item) {
+                try {
+                    await shell.trashItem(item.path)
+                    successCount++
+                } catch (e) {
+                    failCount++
+                    errors.push(`${item.name}: ${String(e)}`)
+                }
+            }
+        }
+
+        // 从数据库删除成功移动到回收站的项目
+        if (successCount > 0) {
+            deleteMediaItems(ids.slice(0, successCount))
+        }
+
+        return {
+            success: true,
+            successCount,
+            failCount,
+            errors: errors.slice(0, 5) // 最多返回5个错误
+        }
+    } catch (error) {
+        console.error('批量移动到回收站失败:', error)
+        return { success: false, error: String(error) }
+    }
+})
+
+// 请求 AI 服务计算清晰度评分
+ipcMain.handle('cleanup:calculateFocusScore', async (_event, imagePath: string) => {
+    try {
+        const response = await fetch('http://127.0.0.1:8765/focus-score', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image_path: imagePath })
+        })
+
+        if (!response.ok) {
+            throw new Error(`AI 服务返回错误: ${response.status}`)
+        }
+
+        const data = await response.json()
+        return { success: true, data }
+    } catch (error) {
+        console.error('计算清晰度评分失败:', error)
         return { success: false, error: String(error) }
     }
 })

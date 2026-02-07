@@ -9,7 +9,8 @@
         "images": "图片",
         "videos": "视频",
         "settings": "设置",
-        "ai_tag_cloud": "AI 标签云"
+        "ai_tag_cloud": "AI 标签云",
+        "cleanup": "清理助手"
     },
     "topbar": {
         "search_placeholder": "搜索媒体、标签或命令...",
@@ -65,5 +66,27 @@
         "processing": "AI 处理中: 还剩 {{count}} 项",
         "scanning": "正在扫描图库...",
         "total_items": "共 {{count}} 项"
+    },
+    "cleanup": {
+        "title": "清理助手",
+        "description": "检测并清理重复文件、相似照片和低质量图片",
+        "analyzing": "正在分析媒体库...",
+        "analyzing_hint": "这可能需要一些时间，请稍候",
+        "rescan": "重新扫描",
+        "duplicates": "重复文件",
+        "similar": "相似照片",
+        "lowquality": "低质量",
+        "savings": "可节省空间",
+        "tab_duplicates": "精确重复",
+        "tab_similar": "相似照片",
+        "tab_lowquality": "低质量",
+        "no_duplicates": "没有发现重复文件",
+        "no_duplicates_hint": "您的媒体库非常整洁！",
+        "no_similar": "没有发现相似照片",
+        "no_lowquality": "没有发现低质量照片",
+        "clean_selected": "清理选中项"
+    },
+    "common": {
+        "cancel": "取消"
     }
 }

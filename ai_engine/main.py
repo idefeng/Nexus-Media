@@ -61,6 +61,35 @@ class BatchAnalyzeResponse(BaseModel):
     results: list[BatchAnalyzeItem]
 
 
+class FocusScoreRequest(BaseModel):
+    image_path: str
+
+
+class FocusScoreResponse(BaseModel):
+    focus_score: float
+    is_blurry: bool
+    brightness: float
+    is_too_dark: bool
+    is_too_bright: bool
+
+
+class BatchFocusRequest(BaseModel):
+    image_paths: list[str]
+
+
+class BatchFocusItem(BaseModel):
+    path: str
+    success: bool
+    focus_score: Optional[float] = None
+    is_blurry: Optional[bool] = None
+    brightness: Optional[float] = None
+    error: Optional[str] = None
+
+
+class BatchFocusResponse(BaseModel):
+    results: list[BatchFocusItem]
+
+
 class HealthResponse(BaseModel):
     status: str
     cuda: bool
@@ -161,6 +190,90 @@ async def batch_analyze(request: BatchAnalyzeRequest):
     return BatchAnalyzeResponse(results=items)
 
 
+# ==================== 图片质量检测 ====================
+
+def calculate_focus_score(image_path: str) -> dict:
+    """
+    使用 Laplacian 算子计算图片清晰度
+    返回 focus_score (方差) 和亮度信息
+    """
+    import cv2
+    import numpy as np
+    
+    # 读取图片
+    img = cv2.imread(image_path)
+    if img is None:
+        raise ValueError(f"无法读取图片: {image_path}")
+    
+    # 转换为灰度图
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    
+    # 计算 Laplacian 方差 (focus score)
+    laplacian = cv2.Laplacian(gray, cv2.CV_64F)
+    focus_score = laplacian.var()
+    
+    # 计算亮度 (平均像素值)
+    brightness = np.mean(gray)
+    
+    # 判断是否模糊 (阈值 100)
+    is_blurry = focus_score < 100
+    
+    # 判断曝光问题 (正常范围 50-200)
+    is_too_dark = brightness < 50
+    is_too_bright = brightness > 200
+    
+    return {
+        "focus_score": float(focus_score),
+        "is_blurry": is_blurry,
+        "brightness": float(brightness),
+        "is_too_dark": is_too_dark,
+        "is_too_bright": is_too_bright
+    }
+
+
+@app.post("/focus-score", response_model=FocusScoreResponse)
+async def get_focus_score(request: FocusScoreRequest):
+    """
+    计算单张图片的清晰度评分
+    
+    使用 Laplacian 算子计算方差，值越高越清晰
+    """
+    try:
+        result = calculate_focus_score(request.image_path)
+        return FocusScoreResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Focus score calculation failed: {e}")
+
+
+@app.post("/batch-focus-score", response_model=BatchFocusResponse)
+async def batch_focus_score(request: BatchFocusRequest):
+    """
+    批量计算图片清晰度评分
+    """
+    results = []
+    
+    for path in request.image_paths:
+        try:
+            result = calculate_focus_score(path)
+            results.append(BatchFocusItem(
+                path=path,
+                success=True,
+                focus_score=result["focus_score"],
+                is_blurry=result["is_blurry"],
+                brightness=result["brightness"]
+            ))
+        except Exception as e:
+            results.append(BatchFocusItem(
+                path=path,
+                success=False,
+                error=str(e)
+            ))
+    
+    return BatchFocusResponse(results=results)
+
+
 # ==================== 启动入口 ====================
 
 if __name__ == "__main__":
@@ -178,3 +291,4 @@ if __name__ == "__main__":
         port=8765,
         log_level="info"
     )
+

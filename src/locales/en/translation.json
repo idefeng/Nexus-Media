@@ -9,7 +9,8 @@
         "images": "Images",
         "videos": "Videos",
         "settings": "Settings",
-        "ai_tag_cloud": "AI Tag Cloud"
+        "ai_tag_cloud": "AI Tag Cloud",
+        "cleanup": "Cleanup Assistant"
     },
     "topbar": {
         "search_placeholder": "Search media, tags, or commands...",
@@ -65,5 +66,27 @@
         "processing": "AI Processing: {{count}} items remaining",
         "scanning": "Scanning library...",
         "total_items": "{{count}} items"
+    },
+    "cleanup": {
+        "title": "Cleanup Assistant",
+        "description": "Detect and clean up duplicate files, similar photos, and low-quality images",
+        "analyzing": "Analyzing media library...",
+        "analyzing_hint": "This may take some time, please wait",
+        "rescan": "Rescan",
+        "duplicates": "Duplicates",
+        "similar": "Similar Photos",
+        "lowquality": "Low Quality",
+        "savings": "Potential Savings",
+        "tab_duplicates": "Exact Duplicates",
+        "tab_similar": "Similar Photos",
+        "tab_lowquality": "Low Quality",
+        "no_duplicates": "No duplicate files found",
+        "no_duplicates_hint": "Your library is very tidy!",
+        "no_similar": "No similar photos found",
+        "no_lowquality": "No low-quality photos found",
+        "clean_selected": "Clean Selected"
+    },
+    "common": {
+        "cancel": "Cancel"
     }
 }

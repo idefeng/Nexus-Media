@@ -126,6 +126,58 @@ contextBridge.exposeInMainWorld('electronAPI', {
         delete: (ids: number[]) => ipcRenderer.invoke('media:batchDelete', ids) as Promise<{ success: boolean; deleted?: number; error?: string }>,
         addTags: (ids: number[], tags: string[]) => ipcRenderer.invoke('media:batchAddTags', ids, tags) as Promise<{ success: boolean; updated?: number; error?: string }>,
         deleteOne: (id: number) => ipcRenderer.invoke('media:delete', id) as Promise<{ success: boolean; error?: string }>
+    },
+
+    // 清理助手
+    cleanup: {
+        analyze: () => ipcRenderer.invoke('cleanup:analyze') as Promise<{
+            success: boolean
+            data?: {
+                stats: {
+                    duplicateGroups: number
+                    duplicateFiles: number
+                    duplicateSize: number
+                    similarGroups: number
+                    similarFiles: number
+                    lowQualityCount: number
+                    totalCount: number
+                    potentialSavings: number
+                }
+                exactDuplicates: { hash: string; count: number; totalSize: number; items: MediaItemRecord[] }[]
+                similarImages: { groupId: number; similarity: number; items: { id: number; path: string; size: number }[] }[]
+                lowQualityItems: MediaItemRecord[]
+            }
+            error?: string
+        }>,
+        getStats: () => ipcRenderer.invoke('cleanup:getStats') as Promise<{
+            success: boolean
+            data?: {
+                duplicateGroups: number
+                duplicateFiles: number
+                duplicateSize: number
+                lowQualityCount: number
+                totalCount: number
+            }
+            error?: string
+        }>,
+        trashItems: (ids: number[]) => ipcRenderer.invoke('cleanup:trashItems', ids) as Promise<{
+            success: boolean
+            successCount?: number
+            failCount?: number
+            errors?: string[]
+            error?: string
+        }>,
+        calculateFocusScore: (imagePath: string) => ipcRenderer.invoke('cleanup:calculateFocusScore', imagePath) as Promise<{
+            success: boolean
+            data?: {
+                focus_score: number
+                is_blurry: boolean
+                brightness: number
+                is_too_dark: boolean
+                is_too_bright: boolean
+            }
+            error?: string
+        }>
     }
 })
 
@@ -187,6 +239,56 @@ declare global {
                 delete: (ids: number[]) => Promise<{ success: boolean; deleted?: number; error?: string }>
                 addTags: (ids: number[], tags: string[]) => Promise<{ success: boolean; updated?: number; error?: string }>
                 deleteOne: (id: number) => Promise<{ success: boolean; error?: string }>
+            }
+            cleanup: {
+                analyze: () => Promise<{
+                    success: boolean
+                    data?: {
+                        stats: {
+                            duplicateGroups: number
+                            duplicateFiles: number
+                            duplicateSize: number
+                            similarGroups: number
+                            similarFiles: number
+                            lowQualityCount: number
+                            totalCount: number
+                            potentialSavings: number
+                        }
+                        exactDuplicates: { hash: string; count: number; totalSize: number; items: MediaItemRecord[] }[]
+                        similarImages: { groupId: number; similarity: number; items: { id: number; path: string; size: number }[] }[]
+                        lowQualityItems: MediaItemRecord[]
+                    }
+                    error?: string
+                }>
+                getStats: () => Promise<{
+                    success: boolean
+                    data?: {
+                        duplicateGroups: number
+                        duplicateFiles: number
+                        duplicateSize: number
+                        lowQualityCount: number
+                        totalCount: number
+                    }
+                    error?: string
+                }>
+                trashItems: (ids: number[]) => Promise<{
+                    success: boolean
+                    successCount?: number
+                    failCount?: number
+                    errors?: string[]
+                    error?: string
+                }>
+                calculateFocusScore: (imagePath: string) => Promise<{
+                    success: boolean
+                    data?: {
+                        focus_score: number
+                        is_blurry: boolean
+                        brightness: number
+                        is_too_dark: boolean
+                        is_too_bright: boolean
+                    }
+                    error?: string
+                }>
             }
         }
     }

@@ -8,6 +8,7 @@ import { Dashboard } from './components/dashboard/Dashboard'
 import { TopBar, Sidebar, StatusBar } from './components/layout'
 import { MediaGrid } from './components/media'
 import { SettingsPage } from './components/settings/SettingsPage'
+import { CleanupDashboard } from './components/cleanup'
 import { DetailModal } from './components/preview'
 import { recordToMediaItem } from './types'
 import { type FilterState, defaultFilterState } from './components/layout/FilterPanel'
@@ -483,6 +484,8 @@ function App() {
                         />
                     ) : currentView === 'settings' ? (
                         <SettingsPage />
+                    ) : currentView === 'cleanup' ? (
+                        <CleanupDashboard />
                     ) : (
                         <MediaGrid
                             items={filteredItems}
