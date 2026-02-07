@@ -10,6 +10,8 @@ import { MediaCard } from './MediaCard'
 import { ContextMenu, createMediaContextMenuItems } from '../common/ContextMenu'
 import { BulkActionBar } from '../gallery/BulkActionBar'
 import type { MediaItem, ViewType } from '../../types'
+import { usePreferences } from '../../contexts/PreferencesContext'
+
 
 interface MediaGridProps {
     items: MediaItem[]
@@ -51,6 +53,14 @@ export function MediaGrid({
     allTags = []
 }: MediaGridProps) {
     const { title } = viewTitles[currentView]
+    const { preferences } = usePreferences()
+
+    // 根据 gridSize 偏好设置网格列数
+    const gridColsClass = {
+        small: 'grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10',
+        medium: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6',
+        large: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'
+    }[preferences.gridSize]
 
     // 多选状态
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
@@ -250,7 +260,7 @@ export function MediaGrid({
                             data={items}
                             totalCount={items.length}
                             overscan={400}
-                            listClassName="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 p-6"
+                            listClassName={`grid ${gridColsClass} gap-4 p-6`}
                             itemContent={(index, item) => (
                                 <MediaCard
                                     key={item.id}

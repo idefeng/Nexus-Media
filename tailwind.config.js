@@ -9,27 +9,30 @@ export default {
         extend: {
             colors: {
                 // Swiss Design / Clean Tech Palette
-                'nexus-bg': {
-                    DEFAULT: '#F9F9F9', // Light Gray Base
-                    secondary: '#FFFFFF', // Pure White Cards
-                    tertiary: '#F4F4F5', // Subtle Gray for inputs/secondary backgrounds
-                    hover: '#F0F0F0'
+                colors: {
+                    // Swiss Design / Clean Tech Palette
+                    'nexus-bg': {
+                        DEFAULT: 'var(--nexus-bg)',
+                        secondary: 'var(--nexus-bg-secondary)',
+                        tertiary: 'var(--nexus-bg-tertiary)',
+                        hover: 'var(--nexus-bg-hover)'
+                    },
+                    // Accents
+                    'neon': {
+                        cyan: '#10B981', // Mapping 'cyan' to Emerald Green (Primary Action)
+                        purple: '#64748B', // Mapping 'purple' to Slate Gray (Secondary/Neutral)
+                        green: '#10B981', // Emerald Green
+                        pink: '#EF4444', // Red for errors/alerts
+                        electric: '#10B981' // Emerald Green
+                    },
+                    // Text Colors
+                    'nexus-text': {
+                        primary: 'var(--nexus-text-primary)',
+                        secondary: 'var(--nexus-text-secondary)',
+                        muted: 'var(--nexus-text-muted)'
+                    },
+                    'nexus-border': 'var(--nexus-border)'
                 },
-                // Accents
-                'neon': {
-                    cyan: '#10B981', // Mapping 'cyan' to Emerald Green (Primary Action)
-                    purple: '#64748B', // Mapping 'purple' to Slate Gray (Secondary/Neutral)
-                    green: '#10B981', // Emerald Green
-                    pink: '#EF4444', // Red for errors/alerts
-                    electric: '#10B981' // Emerald Green
-                },
-                // Text Colors
-                'nexus-text': {
-                    primary: '#111827', // Dark Gray/Black
-                    secondary: '#4B5563', // Medium Gray
-                    muted: '#9CA3AF' // Light Gray
-                },
-                'nexus-border': '#E5E7EB' // Light Gray Border
             },
             fontFamily: {
                 'display': ['Inter', 'sans-serif'],

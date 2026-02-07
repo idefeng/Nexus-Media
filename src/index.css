@@ -2,6 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --nexus-bg: #F9F9F9;
+  --nexus-bg-secondary: #FFFFFF;
+  --nexus-bg-tertiary: #F4F4F5;
+  --nexus-bg-hover: #F0F0F0;
+  --nexus-text-primary: #111827;
+  --nexus-text-secondary: #4B5563;
+  --nexus-text-muted: #9CA3AF;
+  --nexus-border: #E5E7EB;
+}
+
+.dark {
+  --nexus-bg: #0A0A0B;
+  --nexus-bg-secondary: #141416;
+  --nexus-bg-tertiary: #1D1D20;
+  --nexus-bg-hover: #262629;
+  --nexus-text-primary: #F3F4F6;
+  --nexus-text-secondary: #9CA3AF;
+  --nexus-text-muted: #6B7280;
+  --nexus-border: #27272A;
+}
+
 /* ==================== 全局样式 ==================== */
 * {
   margin: 0;

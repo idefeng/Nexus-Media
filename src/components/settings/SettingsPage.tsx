@@ -4,6 +4,8 @@ import {
     Settings, Database, FolderOpen, Cpu, Palette, Globe,
     Info, RefreshCw, Trash2, HardDrive, Zap, Monitor
 } from 'lucide-react'
+import { usePreferences } from '../../contexts/PreferencesContext'
+
 
 interface AppConfig {
     database: {
@@ -30,6 +32,7 @@ interface AppConfig {
 }
 
 export function SettingsPage() {
+    const { preferences, updateGridSize, updateTheme, updateLanguage } = usePreferences()
     const [config, setConfig] = useState<AppConfig | null>(null)
     const [dbSize, setDbSize] = useState<number>(0)
     const [appVersion, setAppVersion] = useState<string>('')
@@ -138,15 +141,6 @@ export function SettingsPage() {
         }
     }
 
-    const handleUpdateUI = async (updates: Partial<AppConfig['ui']>) => {
-        if (!config) return
-        const result = await window.electronAPI.config.update({
-            ui: { ...config.ui, ...updates }
-        })
-        if (result.success) {
-            loadConfig()
-        }
-    }
 
     if (loading || !config) {
         return (
@@ -276,10 +270,10 @@ export function SettingsPage() {
                                 {(['small', 'medium', 'large'] as const).map((size) => (
                                     <button
                                         key={size}
-                                        onClick={() => handleUpdateUI({ gridSize: size })}
-                                        className={`px-4 py-2 rounded-lg transition-colors ${config.ui.gridSize === size
-                                                ? 'bg-neon-cyan text-white'
-                                                : 'bg-nexus-bg-secondary text-nexus-text hover:bg-nexus-bg-tertiary'
+                                        onClick={() => updateGridSize(size)}
+                                        className={`px-4 py-2 rounded-lg transition-colors ${preferences.gridSize === size
+                                            ? 'bg-neon-cyan text-white'
+                                            : 'bg-nexus-bg-secondary text-nexus-text hover:bg-nexus-bg-tertiary'
                                             }`}
                                     >
                                         {size === 'small' ? '小' : size === 'medium' ? '中' : '大'}
@@ -294,10 +288,10 @@ export function SettingsPage() {
                                 {(['light', 'dark', 'auto'] as const).map((theme) => (
                                     <button
                                         key={theme}
-                                        onClick={() => handleUpdateUI({ theme })}
-                                        className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${config.ui.theme === theme
-                                                ? 'bg-neon-cyan text-white'
-                                                : 'bg-nexus-bg-secondary text-nexus-text hover:bg-nexus-bg-tertiary'
+                                        onClick={() => updateTheme(theme)}
+                                        className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${preferences.theme === theme
+                                            ? 'bg-neon-cyan text-white'
+                                            : 'bg-nexus-bg-secondary text-nexus-text hover:bg-nexus-bg-tertiary'
                                             }`}
                                     >
                                         <Monitor className="w-4 h-4" />
@@ -313,10 +307,10 @@ export function SettingsPage() {
                                 {(['zh-CN', 'en-US'] as const).map((lang) => (
                                     <button
                                         key={lang}
-                                        onClick={() => handleUpdateUI({ language: lang })}
-                                        className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${config.ui.language === lang
-                                                ? 'bg-neon-cyan text-white'
-                                                : 'bg-nexus-bg-secondary text-nexus-text hover:bg-nexus-bg-tertiary'
+                                        onClick={() => updateLanguage(lang)}
+                                        className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${preferences.language === lang
+                                            ? 'bg-neon-cyan text-white'
+                                            : 'bg-nexus-bg-secondary text-nexus-text hover:bg-nexus-bg-tertiary'
                                             }`}
                                     >
                                         <Globe className="w-4 h-4" />
@@ -334,12 +328,12 @@ export function SettingsPage() {
                         <div>
                             <label className="text-sm text-nexus-text-muted">版本</label>
                             <div className="mt-1 text-nexus-text font-medium">
-                                Nexus Media v{appVersion || config.version}
+                                灵镜媒体管理器(Nexus Media) v{appVersion || config.version}
                             </div>
                         </div>
                         <div>
                             <label className="text-sm text-nexus-text-muted">开发团队</label>
-                            <div className="mt-1 text-nexus-text">Nexus Team</div>
+                            <div className="mt-1 text-nexus-text">Developer: idefeng(changdefeng06@gmail.com)</div>
                         </div>
                         <button
                             onClick={() => alert('检查更新功能即将推出')}

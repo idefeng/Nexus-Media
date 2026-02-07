@@ -171,9 +171,9 @@ export function TopBar({
                 </div>
                 <div>
                     <h1 className="font-display font-bold text-lg leading-tight bg-gradient-to-r from-nexus-text-primary to-nexus-text-secondary bg-clip-text text-transparent">
-                        灵境媒体
+                        {t('common.app_name')}
                     </h1>
-                    <span className="text-[10px] text-nexus-text-muted font-mono tracking-wider">Nexus Media</span>
+                    <span className="text-[10px] text-nexus-text-muted font-mono tracking-wider">{t('common.app_subtitle')}</span>
                 </div>
             </div>
 

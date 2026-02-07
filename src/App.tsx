@@ -14,6 +14,7 @@ import { PeoplePage } from './components/people/PeoplePage'
 import { DetailModal } from './components/preview'
 import { type FilterState, defaultFilterState } from './components/layout/FilterPanel'
 import { recordToMediaItem, type ViewType, MediaItem, ScanProgress, TagStat, MediaItemRecord } from './types'
+import { PreferencesProvider } from './contexts/PreferencesContext'
 
 
 
@@ -484,123 +485,125 @@ function App() {
     }
 
     return (
-        <div className="h-screen w-screen flex flex-col bg-nexus-bg overflow-hidden">
-            {/* 顶部栏 */}
-            <TopBar
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                onAddFolder={handleAddFolder}
-                onRefresh={loadMediaFromDB}
-                isScanning={isScanning}
-                scanStatus={scanStatus}
-            />
-
-            {/* 主体区域 */}
-            <div className="flex-1 flex overflow-hidden">
-                {/* 侧边栏 */}
-                <Sidebar
-                    currentView={currentView}
-                    onViewChange={setCurrentView}
-                    tagStats={tagStats}
-                    selectedTag={selectedTag}
-                    onTagSelect={setSelectedTag}
-                    mediaCount={mediaCount}
-                    filters={filters}
-                    onFiltersChange={setFilters}
-                    availableTags={allTags}
+        <PreferencesProvider>
+            <div className="h-screen w-screen flex flex-col bg-nexus-bg overflow-hidden">
+                {/* 顶部栏 */}
+                <TopBar
+                    searchQuery={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    onAddFolder={handleAddFolder}
+                    onRefresh={loadMediaFromDB}
+                    isScanning={isScanning}
+                    scanStatus={scanStatus}
                 />
 
-                {/* 媒体展示区 */}
-                <main className="flex-1 flex flex-col overflow-hidden bg-nexus-bg relative">
-                    {currentView === 'dashboard' ? (
-                        <Dashboard
-                            mediaCount={mediaCount}
-                            recentItems={mediaItems
-                                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                                .slice(0, 10)
-                            }
-                            onNavigate={setCurrentView}
-                            onItemClick={handleItemClick}
-                        />
-                    ) : currentView === 'settings' ? (
-                        <SettingsPage />
-                    ) : currentView === 'cleanup' ? (
-                        <CleanupDashboard />
-                    ) : currentView === 'studio' ? (
-                        <StudioDashboard />
-                    ) : currentView === 'people' ? (
-                        <PeoplePage />
-                    ) : (
-                        <MediaGrid
-                            items={filteredItems}
-                            currentView={currentView}
-                            selectedTag={selectedTag}
-                            onFavoriteToggle={handleFavoriteToggle}
-                            onItemClick={handleItemClick}
-                            onDeleteItem={handleDeleteItem}
-                            onBatchDelete={handleBatchDelete}
-                            onBatchAddTags={handleBatchAddTags}
-                            onShare={handleShare}
-                            onRefresh={loadMediaFromDB}
-                            allTags={allTags}
-                        />
-                    )}
-                </main>
-            </div>
+                {/* 主体区域 */}
+                <div className="flex-1 flex overflow-hidden">
+                    {/* 侧边栏 */}
+                    <Sidebar
+                        currentView={currentView}
+                        onViewChange={setCurrentView}
+                        tagStats={tagStats}
+                        selectedTag={selectedTag}
+                        onTagSelect={setSelectedTag}
+                        mediaCount={mediaCount}
+                        filters={filters}
+                        onFiltersChange={setFilters}
+                        availableTags={allTags}
+                    />
 
-            {/* 底部状态栏 */}
-            <StatusBar
-                scanStatus={scanStatus}
-                isScanning={isScanning}
-                dbCount={dbMediaCount}
-                aiQueueCount={0}
-            />
-
-            {/* 详情预览 Modal */}
-            <DetailModal
-                isOpen={isPreviewOpen}
-                item={previewItem}
-                items={filteredItems}
-                allTags={allTags}
-                onClose={handlePreviewClose}
-                onNavigate={handlePreviewNavigate}
-                onTagsChange={handleTagsChange}
-                onNotesChange={handleNotesChange}
-                onFavoriteToggle={handleFavoriteToggle}
-                onAdoptAiTag={handleAdoptAiTag}
-                onDeleteItem={handleDeleteItem}
-                onShare={handleShare}
-            />
-
-            {/* 底部装饰 - 极简风格不需要强光晕，可以使用极淡的渐变背景或留白 */}
-            <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10 bg-nexus-bg">
-                <div className="absolute top-0 right-0 w-full h-96 bg-gradient-to-b from-white to-transparent opacity-60" />
-            </div>
-
-            {/* AI 重新扫描悬浮按钮 (Floating Action Button) */}
-            <motion.button
-                whileHover={{ scale: 1.05, boxShadow: "0 20px 25px -5px rgba(16, 185, 129, 0.2), 0 10px 10px -5px rgba(16, 185, 129, 0.1)" }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => {
-                    if (!isScanning) {
-                        // 触发重新扫描逻辑，这里可以使用 loadMediaFromDB 或者专门的重新扫描
-                        loadMediaFromDB();
-                        // 如果有专门的 AI 扫描 API，应该调用那个
-                        // 假设 AI 扫描是 verify 或 re-scan
-                    }
-                }}
-                className={`fixed bottom-8 right-8 w-14 h-14 rounded-full flex items-center justify-center shadow-clean-hover z-50 transition-colors ${isScanning ? 'bg-nexus-bg-tertiary cursor-not-allowed' : 'bg-neon-cyan text-white'
-                    }`}
-                title="AI Re-scanning"
-            >
-                <div className={`relative flex items-center justify-center ${isScanning ? 'animate-spin' : ''}`}>
-                    {/* 使用 Brain 或 Sparkles 图标 */}
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 2v4" /><path d="m16.2 7.8 2.9-2.9" /><path d="M18 12h4" /><path d="m16.2 16.2 2.9 2.9" /><path d="M12 18v4" /><path d="m4.9 19.1 2.9-2.9" /><path d="M2 12h4" /><path d="m4.9 4.9 2.9 2.9" />
-                    </svg>
+                    {/* 媒体展示区 */}
+                    <main className="flex-1 flex flex-col overflow-hidden bg-nexus-bg relative">
+                        {currentView === 'dashboard' ? (
+                            <Dashboard
+                                mediaCount={mediaCount}
+                                recentItems={mediaItems
+                                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                                    .slice(0, 10)
+                                }
+                                onNavigate={setCurrentView}
+                                onItemClick={handleItemClick}
+                            />
+                        ) : currentView === 'settings' ? (
+                            <SettingsPage />
+                        ) : currentView === 'cleanup' ? (
+                            <CleanupDashboard />
+                        ) : currentView === 'studio' ? (
+                            <StudioDashboard />
+                        ) : currentView === 'people' ? (
+                            <PeoplePage />
+                        ) : (
+                            <MediaGrid
+                                items={filteredItems}
+                                currentView={currentView}
+                                selectedTag={selectedTag}
+                                onFavoriteToggle={handleFavoriteToggle}
+                                onItemClick={handleItemClick}
+                                onDeleteItem={handleDeleteItem}
+                                onBatchDelete={handleBatchDelete}
+                                onBatchAddTags={handleBatchAddTags}
+                                onShare={handleShare}
+                                onRefresh={loadMediaFromDB}
+                                allTags={allTags}
+                            />
+                        )}
+                    </main>
                 </div>
-            </motion.button>
-        </div>
+
+                {/* 底部状态栏 */}
+                <StatusBar
+                    scanStatus={scanStatus}
+                    isScanning={isScanning}
+                    dbCount={dbMediaCount}
+                    aiQueueCount={0}
+                />
+
+                {/* 详情预览 Modal */}
+                <DetailModal
+                    isOpen={isPreviewOpen}
+                    item={previewItem}
+                    items={filteredItems}
+                    allTags={allTags}
+                    onClose={handlePreviewClose}
+                    onNavigate={handlePreviewNavigate}
+                    onTagsChange={handleTagsChange}
+                    onNotesChange={handleNotesChange}
+                    onFavoriteToggle={handleFavoriteToggle}
+                    onAdoptAiTag={handleAdoptAiTag}
+                    onDeleteItem={handleDeleteItem}
+                    onShare={handleShare}
+                />
+
+                {/* 底部装饰 - 极简风格不需要强光晕，可以使用极淡的渐变背景或留白 */}
+                <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10 bg-nexus-bg">
+                    <div className="absolute top-0 right-0 w-full h-96 bg-gradient-to-b from-white to-transparent opacity-60" />
+                </div>
+
+                {/* AI 重新扫描悬浮按钮 (Floating Action Button) */}
+                <motion.button
+                    whileHover={{ scale: 1.05, boxShadow: "0 20px 25px -5px rgba(16, 185, 129, 0.2), 0 10px 10px -5px rgba(16, 185, 129, 0.1)" }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                        if (!isScanning) {
+                            // 触发重新扫描逻辑，这里可以使用 loadMediaFromDB 或者专门的重新扫描
+                            loadMediaFromDB();
+                            // 如果有专门的 AI 扫描 API，应该调用那个
+                            // 假设 AI 扫描是 verify 或 re-scan
+                        }
+                    }}
+                    className={`fixed bottom-8 right-8 w-14 h-14 rounded-full flex items-center justify-center shadow-clean-hover z-50 transition-colors ${isScanning ? 'bg-nexus-bg-tertiary cursor-not-allowed' : 'bg-neon-cyan text-white'
+                        }`}
+                    title="AI Re-scanning"
+                >
+                    <div className={`relative flex items-center justify-center ${isScanning ? 'animate-spin' : ''}`}>
+                        {/* 使用 Brain 或 Sparkles 图标 */}
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 2v4" /><path d="m16.2 7.8 2.9-2.9" /><path d="M18 12h4" /><path d="m16.2 16.2 2.9 2.9" /><path d="M12 18v4" /><path d="m4.9 19.1 2.9-2.9" /><path d="M2 12h4" /><path d="m4.9 4.9 2.9 2.9" />
+                        </svg>
+                    </div>
+                </motion.button>
+            </div>
+        </PreferencesProvider>
     )
 }
 
