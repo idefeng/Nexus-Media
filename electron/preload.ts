@@ -50,6 +50,10 @@ interface MediaItemRecord {
     ai_tags: string | null
     embedding: ArrayBuffer | null
     exif_data: string | null
+    md5_hash: string | null
+    focus_score: number | null
+    latitude: number | null
+    longitude: number | null
 }
 
 // 暴露 API 到渲染进程
@@ -155,6 +159,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
         toggleAI: (enabled: boolean) => ipcRenderer.invoke('config:toggleAI', enabled),
         toggleCuda: (enabled: boolean) => ipcRenderer.invoke('config:toggleCuda', enabled),
         getVersion: () => ipcRenderer.invoke('config:getVersion')
+    },
+    // 地图功能
+    map: {
+        getMedia: () => ipcRenderer.invoke('map:getMedia') as Promise<{ success: boolean; items: MediaItemRecord[] }>,
+        searchByBounds: (bounds: { north: number; south: number; east: number; west: number }) =>
+            ipcRenderer.invoke('map:searchByBounds', bounds) as Promise<{ success: boolean; items: MediaItemRecord[] }>
     }
 })
 

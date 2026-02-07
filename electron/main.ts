@@ -10,7 +10,8 @@ import {
     toggleFavorite, updateTags, updateNotes, getAllTags, getMediaItem, closeDatabase,
     updateAiTags, getPendingAiItems, deleteMediaItem, deleteMediaItems, batchAddTags,
     updateMd5Hash, updateFocusScore, getCleanupStats, getExactDuplicates, getLowQualityItems,
-    getAllPersons, updatePersonName, getSocialGraphData, getSharedMedia, clearDatabase
+    getAllPersons, updatePersonName, getSocialGraphData, getSharedMedia, clearDatabase,
+    getMediaWithLocation, searchMediaByBounds
 } from './database'
 import { scanFolders, type ScannedFile, type ScanProgress } from './scanner'
 import { initThumbnailsDir, startThumbnailBatch } from './thumbnails'
@@ -18,6 +19,7 @@ import { startAiServer, stopAiServer, checkHealth, analyzeImage, semanticSearch,
 import { generateCollage } from './studio'
 import { processMd5Batch, analyzeCleanup, detectSimilarInChunk, trashItems as trashMediaItems, detectBlurryImages } from './cleanup'
 import { getItemsWithEmbedding } from './database'
+import { processExifBatch, stopExifTool } from './exif'
 import fs from 'fs-extra'
 import type { AppConfig } from './config-store'
 
@@ -96,19 +98,18 @@ app.whenReady().then(() => {
 
         // 启动后台任务调度器 (每10秒检查一次)
         setInterval(async () => {
-            const fs = require('fs')
-            const path = require('path')
-            fs.appendFileSync(path.join(process.cwd(), 'scheduler_log.txt'), `[${new Date().toISOString()}] Scheduler tick\n`)
             // 后台任务并行启动（各自内部有 isProcessing 锁）
             startThumbnailBatch()
             processBackgroundAnalysis()
             processMd5Batch()
+            processExifBatch()
         }, 10000)
 
         // 立即执行一次
         startThumbnailBatch()
         processBackgroundAnalysis()
         processMd5Batch()
+        processExifBatch()
 
     }).catch(err => {
         console.error('数据库初始化失败:', err)
@@ -123,8 +124,13 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
         stopAiServer()
         closeDatabase()
+        stopExifTool()
         app.quit()
     }
+})
+
+app.on('will-quit', () => {
+    stopExifTool()
 })
 
 app.on('activate', () => {
@@ -248,6 +254,26 @@ ipcMain.handle('ai:getStatus', () => getAiStatus())
 
 ipcMain.handle('ai:analyze', async (_event, imagePath) => {
     return await analyzeImage(imagePath)
+})
+
+// 地图功能
+ipcMain.handle('map:getMedia', async () => {
+    try {
+        const items = getMediaWithLocation()
+        return { success: true, items }
+    } catch (error: any) {
+        return { success: false, message: error.message }
+    }
+})
+
+ipcMain.handle('map:searchByBounds', async (_event, bounds) => {
+    try {
+        const { north, south, east, west } = bounds
+        const items = searchMediaByBounds(north, south, east, west)
+        return { success: true, items }
+    } catch (error: any) {
+        return { success: false, message: error.message }
+    }
 })
 
 ipcMain.handle('ai:semanticSearch', async (_event, query, limit) => {

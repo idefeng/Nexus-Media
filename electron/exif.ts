@@ -1,8 +1,8 @@
 /**
  * EXIF 元数据提取模块
- * 从图片中提取拍摄设备信息、GPS 坐标等元数据
+ * 使用 exiftool-vendored 提供强大的元数据解析能力（支持图片和视频）
  */
-import * as exifr from 'exifr'
+import { exiftool } from 'exiftool-vendored'
 import { updateExifData, getPendingExifItems } from './database'
 
 /**
@@ -15,7 +15,7 @@ export interface ExifData {
     software?: string       // 处理软件
 
     // 拍摄参数
-    focalLength?: number    // 焦距 (mm)
+    focalLength?: string    // 焦距
     aperture?: number       // 光圈 (f/)
     exposureTime?: string   // 快门速度
     iso?: number            // ISO 感光度
@@ -25,89 +25,54 @@ export interface ExifData {
     dateTimeOriginal?: string   // 原始拍摄时间
 
     // GPS 信息
-    latitude?: number       // 纬度
-    longitude?: number      // 经度
+    latitude?: number       // 纬度 (十进制)
+    longitude?: number      // 经度 (十进制)
     altitude?: number       // 海拔 (m)
 
-    // 图像信息
-    width?: number          // 原始宽度
-    height?: number         // 原始高度
+    // 图像/视频信息
+    width?: number          // 宽度
+    height?: number         // 高度
     orientation?: number    // 方向
-    colorSpace?: string     // 色彩空间
+    duration?: number       // 时长 (秒)
 }
 
 /**
- * 从图片文件提取 EXIF 数据
+ * 从媒体文件提取元数据
  */
-export async function extractExifData(imagePath: string): Promise<ExifData | null> {
+export async function extractExifData(filePath: string): Promise<ExifData | null> {
     try {
-        // exifr 自动处理多种图像格式
-        const exif = await exifr.parse(imagePath, {
-            // 选择要提取的标签
-            pick: [
-                // 相机信息
-                'Make', 'Model', 'Software',
-                // 拍摄参数
-                'FocalLength', 'FNumber', 'ExposureTime', 'ISO', 'Flash',
-                // 时间
-                'DateTimeOriginal', 'CreateDate',
-                // GPS
-                'GPSLatitude', 'GPSLongitude', 'GPSAltitude',
-                // 图像
-                'ImageWidth', 'ImageHeight', 'Orientation', 'ColorSpace',
-                'ExifImageWidth', 'ExifImageHeight'
-            ],
-            // 自动转换 GPS 坐标为十进制
-            gps: true
-        })
+        const tags = await exiftool.read(filePath)
 
-        if (!exif) {
+        if (!tags) {
             return null
-        }
-
-        // 格式化快门速度
-        let exposureTime: string | undefined
-        if (exif.ExposureTime) {
-            if (exif.ExposureTime < 1) {
-                exposureTime = `1/${Math.round(1 / exif.ExposureTime)}s`
-            } else {
-                exposureTime = `${exif.ExposureTime}s`
-            }
-        }
-
-        // 格式化闪光灯状态
-        let flash: string | undefined
-        if (exif.Flash !== undefined) {
-            // Flash 值是一个位字段，低位表示是否闪光
-            flash = (exif.Flash & 1) ? '已开启' : '未开启'
         }
 
         const result: ExifData = {
             // 相机信息
-            make: exif.Make,
-            model: exif.Model,
-            software: exif.Software,
+            make: tags.Make,
+            model: tags.Model,
+            software: tags.Software,
 
             // 拍摄参数
-            focalLength: exif.FocalLength,
-            aperture: exif.FNumber,
-            exposureTime,
-            iso: exif.ISO,
-            flash,
+            focalLength: tags.FocalLength ? String(tags.FocalLength) : undefined,
+            aperture: tags.FNumber || tags.ApertureValue,
+            exposureTime: tags.ExposureTime ? String(tags.ExposureTime) : undefined,
+            iso: tags.ISO,
+            flash: tags.Flash ? String(tags.Flash) : undefined,
 
             // 时间
-            dateTimeOriginal: exif.DateTimeOriginal?.toISOString?.() || exif.CreateDate?.toISOString?.(),
+            dateTimeOriginal: (tags.DateTimeOriginal || tags.CreateDate || tags.ContentCreateDate)?.toString(),
 
-            // GPS (exifr 自动转换为十进制)
-            latitude: exif.latitude,
-            longitude: exif.longitude,
-            altitude: exif.GPSAltitude,
+            // GPS (exiftool 自动处理十进制)
+            latitude: tags.GPSLatitude,
+            longitude: tags.GPSLongitude,
+            altitude: tags.GPSAltitude,
 
-            // 图像尺寸
-            width: exif.ExifImageWidth || exif.ImageWidth,
-            height: exif.ExifImageHeight || exif.ImageHeight,
-            orientation: exif.Orientation,
-            colorSpace: exif.ColorSpace === 1 ? 'sRGB' : exif.ColorSpace === 2 ? 'Adobe RGB' : undefined
+            // 尺寸与时长
+            width: tags.ImageWidth || tags.ExifImageWidth,
+            height: tags.ImageHeight || tags.ExifImageHeight,
+            orientation: tags.Orientation as number,
+            duration: tags.Duration ? parseFloat(String(tags.Duration)) : undefined
         }
 
         // 清理 undefined 值
@@ -119,7 +84,7 @@ export async function extractExifData(imagePath: string): Promise<ExifData | nul
 
         return Object.keys(result).length > 0 ? result : null
     } catch (error) {
-        console.error(`EXIF 提取失败: ${imagePath}`, error)
+        console.error(`元数据提取失败: ${filePath}`, error)
         return null
     }
 }
@@ -138,19 +103,20 @@ export async function processExifBatch(): Promise<number> {
     for (const item of pendingItems) {
         try {
             const exifData = await extractExifData(item.path)
-            // 即使没有 EXIF 数据，也保存一个空对象，避免重复处理
             updateExifData(item.id, exifData || {})
             processed++
         } catch (error) {
-            console.error(`处理 EXIF 失败: ${item.path}`, error)
-            // 保存空对象避免重复处理
+            console.error(`处理元数据失败: ${item.path}`, error)
             updateExifData(item.id, {})
         }
     }
 
-    if (processed > 0) {
-        console.log(`EXIF 批处理: 处理了 ${processed} 张图片`)
-    }
-
     return processed
+}
+
+/**
+ * 应用关闭时释放 exiftool 资源
+ */
+export function stopExifTool() {
+    exiftool.end()
 }

@@ -21,6 +21,10 @@ interface MediaItemRecord {
     width: number | null
     height: number | null
     duration: number | null
+    md5_hash: string | null
+    focus_score: number | null
+    latitude: number | null
+    longitude: number | null
 }
 
 // 扫描进度信息
@@ -136,6 +140,10 @@ interface Window {
             toggleAI: (enabled: boolean) => Promise<{ success: boolean; error?: string }>
             toggleCuda: (enabled: boolean) => Promise<{ success: boolean; message?: string; error?: string }>
             getVersion: () => Promise<{ success: boolean; version?: string }>
+        }
+        map: {
+            getMedia: () => Promise<{ success: boolean; items: MediaItemRecord[] }>
+            searchByBounds: (bounds: { north: number; south: number; east: number; west: number }) => Promise<{ success: boolean; items: MediaItemRecord[] }>
         }
     }
 }

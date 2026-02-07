@@ -15,7 +15,8 @@ import {
     Settings,
     Trash2,
     Palette,
-    Users
+    Users,
+    Map
 } from 'lucide-react'
 import { FilterPanel, type FilterState, defaultFilterState } from './FilterPanel'
 import type { ViewType, TagStat } from '../../types'
@@ -45,8 +46,9 @@ const navItems = [
     { id: 'all' as ViewType, label: 'sidebar.all_media', icon: LayoutGrid },
     { id: 'recent' as ViewType, label: 'sidebar.recently_added', icon: Clock },
     { id: 'favorites' as ViewType, label: 'sidebar.favorites', icon: Heart },
-    { id: 'people' as ViewType, label: 'sidebar.people', icon: Users },
+    // { id: 'people' as ViewType, label: 'sidebar.people', icon: Users }, // 暂时隐藏人物功能
     { id: 'cleanup' as ViewType, label: 'sidebar.cleanup', icon: Trash2 },
+    { id: 'map' as ViewType, label: 'sidebar.map', icon: Map },
     { id: 'studio' as ViewType, label: 'sidebar.studio', icon: Palette }
 ]
 

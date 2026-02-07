@@ -53,6 +53,8 @@ export interface MediaItem {
     aiTags: string[]
     similarityScore?: number
     exifData?: ExifData
+    latitude?: number | null
+    longitude?: number | null
 }
 
 /**
@@ -78,6 +80,8 @@ export interface MediaItemRecord {
     width: number | null
     height: number | null
     duration: number | null
+    latitude: number | null
+    longitude: number | null
 }
 
 /**
@@ -130,7 +134,9 @@ export function recordToMediaItem(record: MediaItemRecord): MediaItem {
         updatedAt: record.updated_at,
         isFavorite: record.is_favorite === 1,
         aiTags: JSON.parse(record.ai_tags || '[]'),
-        exifData
+        exifData,
+        latitude: record.latitude,
+        longitude: record.longitude
     }
 }
 
@@ -155,7 +161,7 @@ export interface TagStat {
 /**
  * 视图类型
  */
-export type ViewType = 'dashboard' | 'all' | 'recent' | 'favorites' | 'settings' | 'cleanup' | 'studio' | 'people'
+export type ViewType = 'dashboard' | 'all' | 'recent' | 'favorites' | 'settings' | 'cleanup' | 'studio' | 'people' | 'map'
 
 /**
  * 扫描进度信息

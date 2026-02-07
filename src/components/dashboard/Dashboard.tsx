@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
-import { HardDrive, Image, Video, Clock, Star, Zap, Activity, Grid } from 'lucide-react'
+import { Image, Video, Clock, Star, Grid } from 'lucide-react'
 import { MediaItem, ViewType } from '../../types'
 
 interface DashboardProps {
@@ -176,25 +176,6 @@ export function Dashboard({ mediaCount, recentItems, onNavigate, onItemClick }: 
                         delay={0.4}
                     />
 
-                    {/* AI Insight / Action Card - 2x1 */}
-                    <motion.div
-                        variants={item}
-                        className="col-span-1 md:col-span-2 row-span-1 bg-white rounded-2xl p-6 border border-gray-100 flex items-center justify-between group hover:border-neon-purple/30 transition-colors shadow-sm"
-                    >
-                        <div>
-                            <div className="flex items-center gap-2 mb-2">
-                                <Zap className="w-4 h-4 text-neon-purple" />
-                                <h3 className="font-bold text-lg text-nexus-text-primary">{t('dashboard.ai_insights')}</h3>
-                            </div>
-                            <p className="text-sm text-nexus-text-secondary max-w-xs">
-                                {t('dashboard.ai_insights_desc')}
-                            </p>
-                        </div>
-                        <button className="h-10 w-10 bg-neon-purple/10 rounded-full flex items-center justify-center group-hover:bg-neon-purple/20 transition-colors">
-                            <Activity className="w-5 h-5 text-neon-purple" />
-                        </button>
-                    </motion.div>
-
                     {/* Cleanup Assistant Card - 2x1 */}
                     <motion.div
                         variants={item}
@@ -215,26 +196,6 @@ export function Dashboard({ mediaCount, recentItems, onNavigate, onItemClick }: 
                         <button className="px-4 py-2 bg-neon-pink/10 text-neon-pink rounded-lg font-medium text-sm group-hover:bg-neon-pink/20 transition-colors">
                             {t('cleanup.rescan', '开始扫描')}
                         </button>
-                    </motion.div>
-
-                    {/* Storage / System Status - 1x1 */}
-                    <motion.div
-                        variants={item}
-                        className="col-span-1 row-span-1 bg-nexus-bg-secondary rounded-2xl p-6 border border-gray-100 flex flex-col justify-between hover:border-gray-200 transition-colors shadow-sm"
-                    >
-                        <div className="flex items-center justify-between">
-                            <span className="text-nexus-text-muted text-xs uppercase tracking-wider">Storage</span>
-                            <HardDrive className="w-4 h-4 text-nexus-text-muted" />
-                        </div>
-                        <div>
-                            <div className="flex items-end gap-1 mb-1">
-                                <span className="text-2xl font-bold font-mono text-nexus-text-primary">Local</span>
-                            </div>
-                            <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2 overflow-hidden">
-                                <div className="bg-neon-cyan h-full rounded-full w-[65%]" />
-                            </div>
-                            <span className="text-[10px] text-nexus-text-muted mt-1 block text-right">65% Used</span>
-                        </div>
                     </motion.div>
                 </motion.div>
             </div>

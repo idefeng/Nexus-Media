@@ -8,10 +8,11 @@ import ReactMarkdown from 'react-markdown'
 import {
     FileText, Calendar, HardDrive, ImageIcon,
     FolderOpen, Edit3, Eye, Save, Sparkles,
-    Camera, MapPin, Aperture, Timer, Gauge
+    Camera, MapPin, Aperture, Timer, Gauge, Share2
 } from 'lucide-react'
 import { TagInput } from './TagInput'
-import { Share2 } from 'lucide-react'
+import { MapContainer, TileLayer, Marker } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css'
 import type { MediaItem } from '../../types'
 
 interface MetadataSidebarProps {
@@ -293,23 +294,41 @@ export function MetadataSidebar({ item, allTags, onTagsChange, onNotesChange, on
 
                             {/* GPS 位置 */}
                             {hasGPS && (
-                                <div className="flex items-start gap-3">
-                                    <MapPin className="w-4 h-4 text-neon-green mt-0.5" />
-                                    <div className="flex-1">
-                                        <p className="text-nexus-text-muted text-xs">GPS 位置</p>
-                                        <p className="text-nexus-text-primary text-sm font-mono">
-                                            {formatGPS(exif.latitude, exif.longitude)}
-                                        </p>
-                                        {exif.altitude !== undefined && (
-                                            <p className="text-nexus-text-muted text-xs mt-0.5">
-                                                海拔: {exif.altitude.toFixed(1)}m
+                                <div className="flex flex-col gap-3">
+                                    <div className="flex items-start gap-3">
+                                        <MapPin className="w-4 h-4 text-neon-green mt-0.5" />
+                                        <div className="flex-1">
+                                            <p className="text-nexus-text-muted text-xs">GPS 位置</p>
+                                            <p className="text-nexus-text-primary text-sm font-mono leading-relaxed">
+                                                {formatGPS(exif!.latitude, exif!.longitude)}
                                             </p>
-                                        )}
-                                        <button
-                                            onClick={() => openMapLink(exif.latitude!, exif.longitude!)}
-                                            className="mt-2 px-2 py-1 text-xs bg-neon-green/10 text-neon-green rounded hover:bg-neon-green/20 transition-colors"
+                                            {exif!.altitude !== undefined && (
+                                                <p className="text-nexus-text-muted text-xs mt-0.5">
+                                                    海拔: {exif!.altitude.toFixed(1)}m
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* 小型交互式地图 */}
+                                    <div className="w-full h-32 rounded-xl overflow-hidden border border-nexus-border relative z-0">
+                                        <MapContainer
+                                            center={[exif!.latitude!, exif!.longitude!]}
+                                            zoom={13}
+                                            className="w-full h-full"
+                                            zoomControl={false}
+                                            attributionControl={false}
                                         >
-                                            在地图中查看
+                                            <TileLayer
+                                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                            />
+                                            <Marker position={[exif!.latitude!, exif!.longitude!]} />
+                                        </MapContainer>
+                                        <button
+                                            onClick={() => openMapLink(exif!.latitude!, exif!.longitude!)}
+                                            className="absolute bottom-1 right-1 z-[400] px-2 py-1 bg-white/90 backdrop-blur-sm shadow-sm rounded-lg text-[10px] font-bold text-nexus-text-primary hover:bg-white transition-colors border border-gray-100"
+                                        >
+                                            查看大图
                                         </button>
                                     </div>
                                 </div>

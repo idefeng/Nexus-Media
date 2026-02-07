@@ -10,6 +10,7 @@ import { SettingsPage } from './components/settings/SettingsPage'
 import { CleanupDashboard } from './components/cleanup/CleanupDashboard'
 import { StudioDashboard } from './components/studio/StudioDashboard'
 import { PeoplePage } from './components/people/PeoplePage'
+import { MapDashboard } from './components/map/MapDashboard'
 import { DetailModal } from './components/preview'
 import { type FilterState, defaultFilterState } from './components/layout/FilterPanel'
 import { recordToMediaItem, type ViewType, MediaItem, ScanProgress, TagStat, MediaItemRecord } from './types'
@@ -556,6 +557,14 @@ function App() {
                             <StudioDashboard />
                         ) : currentView === 'people' ? (
                             <PeoplePage />
+                        ) : currentView === 'map' ? (
+                            <MapDashboard
+                                onPreviewImage={handleItemClick}
+                                onFilteredMedia={(items) => {
+                                    // 这里可以处理地图筛选后的结果，可选
+                                    console.log('Map filtered items:', items.length)
+                                }}
+                            />
                         ) : (
                             <MediaGrid
                                 items={filteredItems}

@@ -29,6 +29,10 @@ export interface MediaItemRecord {
     width: number | null
     height: number | null
     duration: number | null
+    md5_hash: string | null
+    focus_score: number | null
+    latitude: number | null
+    longitude: number | null
 }
 
 export interface PersonRecord {
@@ -96,7 +100,9 @@ export async function initDatabase(): Promise<void> {
             embedding BLOB DEFAULT NULL,
             exif_data TEXT DEFAULT NULL,
             md5_hash TEXT DEFAULT NULL,
-            focus_score REAL DEFAULT NULL
+            focus_score REAL DEFAULT NULL,
+            latitude REAL DEFAULT NULL,
+            longitude REAL DEFAULT NULL
         );
 
         CREATE INDEX IF NOT EXISTS idx_media_type ON media_items(type);
@@ -163,6 +169,21 @@ export async function initDatabase(): Promise<void> {
             db.exec('ALTER TABLE media_items ADD COLUMN focus_score REAL DEFAULT NULL')
             console.log('数据库迁移：添加 focus_score 列')
         }
+
+        if (!columnNames.includes('latitude')) {
+            db.exec('ALTER TABLE media_items ADD COLUMN latitude REAL DEFAULT NULL')
+            db.exec('CREATE INDEX IF NOT EXISTS idx_media_lat ON media_items(latitude)')
+            console.log('数据库迁移：添加 latitude 列')
+        }
+
+        if (!columnNames.includes('longitude')) {
+            db.exec('ALTER TABLE media_items ADD COLUMN longitude REAL DEFAULT NULL')
+            db.exec('CREATE INDEX IF NOT EXISTS idx_media_lng ON media_items(longitude)')
+            console.log('数据库迁移：添加 longitude 列')
+        }
+
+        // 补全已有数据的经纬度
+        backfillLocationData()
     } catch (err) {
         console.error('数据库迁移失败:', err)
     }
@@ -324,6 +345,24 @@ export function getMediaStats() {
         videos: videos.count,
         total: images.count + videos.count
     }
+}
+
+/**
+ * 获取所有带地理位置信息的媒体项
+ */
+export function getMediaWithLocation(): MediaItemRecord[] {
+    return db.prepare('SELECT * FROM media_items WHERE latitude IS NOT NULL AND longitude IS NOT NULL').all() as MediaItemRecord[]
+}
+
+/**
+ * 根据坐标范围搜索媒体
+ */
+export function searchMediaByBounds(north: number, south: number, east: number, west: number): MediaItemRecord[] {
+    return db.prepare(`
+        SELECT * FROM media_items 
+        WHERE latitude <= ? AND latitude >= ? 
+          AND longitude <= ? AND longitude >= ?
+    `).all(north, south, east, west) as MediaItemRecord[]
 }
 
 /**
@@ -522,10 +561,43 @@ export function batchAddTags(ids: number[], tagsToAdd: string[]): number {
 /**
  * 更新 EXIF 数据
  */
-export function updateExifData(id: number, exifData: object): void {
+export function updateExifData(id: number, exifData: any): void {
     const exifJson = JSON.stringify(exifData)
-    db.prepare('UPDATE media_items SET exif_data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-        .run(exifJson, id)
+    const latitude = exifData?.latitude || null
+    const longitude = exifData?.longitude || null
+
+    db.prepare('UPDATE media_items SET exif_data = ?, latitude = ?, longitude = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(exifJson, latitude, longitude, id)
+}
+
+/**
+ * 补全已有数据的经纬度
+ */
+function backfillLocationData() {
+    console.log('检查并补全地理位置数据...')
+    const items = db.prepare(`
+        SELECT id, exif_data FROM media_items 
+        WHERE (latitude IS NULL OR longitude IS NULL) AND exif_data IS NOT NULL
+    `).all() as { id: number; exif_data: string }[]
+
+    let count = 0
+    const stmt = db.prepare('UPDATE media_items SET latitude = ?, longitude = ? WHERE id = ?')
+
+    for (const item of items) {
+        try {
+            const data = JSON.parse(item.exif_data)
+            if (data.latitude && data.longitude) {
+                stmt.run(data.latitude, data.longitude, item.id)
+                count++
+            }
+        } catch (e) {
+            // ignore
+        }
+    }
+
+    if (count > 0) {
+        console.log(`位置数据补全完成: 更新了 ${count} 条记录`)
+    }
 }
 
 /**
