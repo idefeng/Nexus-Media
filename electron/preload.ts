@@ -49,6 +49,7 @@ interface MediaItemRecord {
     updated_at: string
     ai_tags: string | null
     embedding: ArrayBuffer | null
+    exif_data: string | null
 }
 
 // 暴露 API 到渲染进程

@@ -1,4 +1,35 @@
 /**
+ * EXIF 元数据类型
+ */
+export interface ExifData {
+    // 相机信息
+    make?: string           // 相机品牌
+    model?: string          // 相机型号
+    software?: string       // 处理软件
+
+    // 拍摄参数
+    focalLength?: number    // 焦距 (mm)
+    aperture?: number       // 光圈 (f/)
+    exposureTime?: string   // 快门速度
+    iso?: number            // ISO 感光度
+    flash?: string          // 闪光灯状态
+
+    // 时间
+    dateTimeOriginal?: string   // 原始拍摄时间
+
+    // GPS 信息
+    latitude?: number       // 纬度
+    longitude?: number      // 经度
+    altitude?: number       // 海拔 (m)
+
+    // 图像信息
+    width?: number          // 原始宽度
+    height?: number         // 原始高度
+    orientation?: number    // 方向
+    colorSpace?: string     // 色彩空间
+}
+
+/**
  * 媒体资源类型定义
  */
 export interface MediaItem {
@@ -21,6 +52,7 @@ export interface MediaItem {
     isFavorite: boolean
     aiTags: string[]
     similarityScore?: number
+    exifData?: ExifData
 }
 
 /**
@@ -42,6 +74,7 @@ export interface MediaItemRecord {
     created_at: string
     updated_at: string
     ai_tags: string | null
+    exif_data: string | null
 }
 
 /**
@@ -59,6 +92,20 @@ export function recordToMediaItem(record: MediaItemRecord): MediaItem {
         thumbPath = `nexus-media://local/${thumbPath}`
     }
 
+    // 解析 EXIF 数据
+    let exifData: ExifData | undefined
+    if (record.exif_data) {
+        try {
+            const parsed = JSON.parse(record.exif_data)
+            // 只有当解析结果有内容时才赋值
+            if (Object.keys(parsed).length > 0) {
+                exifData = parsed
+            }
+        } catch {
+            // 忽略解析错误
+        }
+    }
+
     return {
         id: record.id,
         path: record.path,
@@ -69,15 +116,16 @@ export function recordToMediaItem(record: MediaItemRecord): MediaItem {
         fileName: record.name,
         fileSize: record.size,
         ext: record.ext,
-        width: null,
-        height: null,
+        width: exifData?.width || null,
+        height: exifData?.height || null,
         duration: null,
         birthTime: record.birth_time,
         modifiedTime: record.modified_time,
         createdAt: record.created_at,
         updatedAt: record.updated_at,
         isFavorite: record.is_favorite === 1,
-        aiTags: JSON.parse(record.ai_tags || '[]')
+        aiTags: JSON.parse(record.ai_tags || '[]'),
+        exifData
     }
 }
 

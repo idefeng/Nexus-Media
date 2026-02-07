@@ -25,6 +25,7 @@ export interface MediaItemRecord {
     updated_at: string
     ai_tags: string | null
     embedding: Buffer | null
+    exif_data: string | null
 }
 
 let db: Database.Database
@@ -66,7 +67,8 @@ export async function initDatabase(): Promise<void> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             is_favorite INTEGER DEFAULT 0,
             ai_tags TEXT DEFAULT NULL,
-            embedding BLOB DEFAULT NULL
+            embedding BLOB DEFAULT NULL,
+            exif_data TEXT DEFAULT NULL
         );
 
         CREATE INDEX IF NOT EXISTS idx_media_type ON media_items(type);
@@ -88,6 +90,11 @@ export async function initDatabase(): Promise<void> {
         if (!columnNames.includes('embedding')) {
             db.exec('ALTER TABLE media_items ADD COLUMN embedding BLOB DEFAULT NULL')
             console.log('数据库迁移：添加 embedding 列')
+        }
+
+        if (!columnNames.includes('exif_data')) {
+            db.exec('ALTER TABLE media_items ADD COLUMN exif_data TEXT DEFAULT NULL')
+            console.log('数据库迁移：添加 exif_data 列')
         }
     } catch (err) {
         console.error('数据库迁移失败:', err)
@@ -312,6 +319,28 @@ export function batchAddTags(ids: number[], tagsToAdd: string[]): number {
 
     transaction()
     return updated
+}
+
+/**
+ * 更新 EXIF 数据
+ */
+export function updateExifData(id: number, exifData: object): void {
+    const exifJson = JSON.stringify(exifData)
+    db.prepare('UPDATE media_items SET exif_data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(exifJson, id)
+}
+
+/**
+ * 获取待处理 EXIF 的媒体项（图片且没有 exif_data 的）
+ */
+export function getPendingExifItems(limit: number = 50): { id: number; path: string }[] {
+    return db.prepare(`
+        SELECT id, path FROM media_items 
+        WHERE type = 'image' 
+          AND exif_data IS NULL 
+        ORDER BY created_at DESC 
+        LIMIT ?
+    `).all(limit) as { id: number; path: string }[]
 }
 
 /**

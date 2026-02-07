@@ -7,7 +7,8 @@ import { motion } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import {
     FileText, Calendar, HardDrive, ImageIcon,
-    FolderOpen, Edit3, Eye, Save, Sparkles
+    FolderOpen, Edit3, Eye, Save, Sparkles,
+    Camera, MapPin, Aperture, Timer, Gauge
 } from 'lucide-react'
 import { TagInput } from './TagInput'
 import type { MediaItem } from '../../types'
@@ -45,6 +46,20 @@ function formatDate(dateString: string): string {
     }
 }
 
+// 格式化 GPS 坐标
+function formatGPS(lat?: number, lng?: number): string | null {
+    if (lat === undefined || lng === undefined) return null
+    const latDir = lat >= 0 ? 'N' : 'S'
+    const lngDir = lng >= 0 ? 'E' : 'W'
+    return `${Math.abs(lat).toFixed(6)}°${latDir}, ${Math.abs(lng).toFixed(6)}°${lngDir}`
+}
+
+// 打开地图链接
+function openMapLink(lat: number, lng: number) {
+    const url = `https://www.google.com/maps?q=${lat},${lng}`
+    window.open(url, '_blank')
+}
+
 export function MetadataSidebar({ item, allTags, onTagsChange, onNotesChange, onAdoptAiTag }: MetadataSidebarProps) {
     const [notes, setNotes] = useState(item.notes || '')
     const [isEditing, setIsEditing] = useState(false)
@@ -78,6 +93,10 @@ export function MetadataSidebar({ item, allTags, onTagsChange, onNotesChange, on
             }
         }
     }, [hasChanges, notes, onNotesChange])
+
+    const exif = item.exifData
+    const hasExif = exif && Object.keys(exif).length > 0
+    const hasGPS = exif?.latitude !== undefined && exif?.longitude !== undefined
 
     return (
         <motion.div
@@ -193,6 +212,113 @@ export function MetadataSidebar({ item, allTags, onTagsChange, onNotesChange, on
                         </div>
                     )}
                 </div>
+
+                {/* EXIF / 拍摄信息 */}
+                {hasExif && (
+                    <div className="p-4 border-b border-nexus-border">
+                        <h4 className="text-nexus-text-primary text-sm font-medium mb-3 flex items-center gap-2">
+                            <Camera className="w-4 h-4 text-neon-electric" />
+                            拍摄信息
+                        </h4>
+
+                        <div className="space-y-3">
+                            {/* 相机设备 */}
+                            {(exif.make || exif.model) && (
+                                <div className="flex items-start gap-3">
+                                    <Camera className="w-4 h-4 text-nexus-text-muted mt-0.5" />
+                                    <div>
+                                        <p className="text-nexus-text-muted text-xs">相机设备</p>
+                                        <p className="text-nexus-text-primary text-sm">
+                                            {[exif.make, exif.model].filter(Boolean).join(' ')}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 拍摄参数 */}
+                            {(exif.focalLength || exif.aperture || exif.exposureTime || exif.iso) && (
+                                <div className="flex items-start gap-3">
+                                    <Aperture className="w-4 h-4 text-nexus-text-muted mt-0.5" />
+                                    <div>
+                                        <p className="text-nexus-text-muted text-xs">拍摄参数</p>
+                                        <div className="flex flex-wrap gap-2 mt-1">
+                                            {exif.focalLength && (
+                                                <span className="px-2 py-0.5 text-xs bg-nexus-bg-tertiary rounded text-nexus-text-secondary">
+                                                    {exif.focalLength}mm
+                                                </span>
+                                            )}
+                                            {exif.aperture && (
+                                                <span className="px-2 py-0.5 text-xs bg-nexus-bg-tertiary rounded text-nexus-text-secondary">
+                                                    f/{exif.aperture}
+                                                </span>
+                                            )}
+                                            {exif.exposureTime && (
+                                                <span className="px-2 py-0.5 text-xs bg-nexus-bg-tertiary rounded text-nexus-text-secondary">
+                                                    {exif.exposureTime}
+                                                </span>
+                                            )}
+                                            {exif.iso && (
+                                                <span className="px-2 py-0.5 text-xs bg-nexus-bg-tertiary rounded text-nexus-text-secondary">
+                                                    ISO {exif.iso}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 拍摄时间 */}
+                            {exif.dateTimeOriginal && (
+                                <div className="flex items-start gap-3">
+                                    <Timer className="w-4 h-4 text-nexus-text-muted mt-0.5" />
+                                    <div>
+                                        <p className="text-nexus-text-muted text-xs">拍摄时间</p>
+                                        <p className="text-nexus-text-primary text-sm">
+                                            {formatDate(exif.dateTimeOriginal)}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* GPS 位置 */}
+                            {hasGPS && (
+                                <div className="flex items-start gap-3">
+                                    <MapPin className="w-4 h-4 text-neon-green mt-0.5" />
+                                    <div className="flex-1">
+                                        <p className="text-nexus-text-muted text-xs">GPS 位置</p>
+                                        <p className="text-nexus-text-primary text-sm font-mono">
+                                            {formatGPS(exif.latitude, exif.longitude)}
+                                        </p>
+                                        {exif.altitude !== undefined && (
+                                            <p className="text-nexus-text-muted text-xs mt-0.5">
+                                                海拔: {exif.altitude.toFixed(1)}m
+                                            </p>
+                                        )}
+                                        <button
+                                            onClick={() => openMapLink(exif.latitude!, exif.longitude!)}
+                                            className="mt-2 px-2 py-1 text-xs bg-neon-green/10 text-neon-green rounded hover:bg-neon-green/20 transition-colors"
+                                        >
+                                            在地图中查看
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 图像尺寸 (从 EXIF) */}
+                            {(exif.width && exif.height) && (
+                                <div className="flex items-start gap-3">
+                                    <Gauge className="w-4 h-4 text-nexus-text-muted mt-0.5" />
+                                    <div>
+                                        <p className="text-nexus-text-muted text-xs">原始尺寸</p>
+                                        <p className="text-nexus-text-primary text-sm">
+                                            {exif.width} × {exif.height} 像素
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {/* 文件详情 */}
                 <div className="p-4">

@@ -105,6 +105,16 @@ app.whenReady().then(async () => {
         }
     })
 
+    // 启动后台 EXIF 提取任务（每 20 秒检查一次）
+    import('./exif').then(({ processExifBatch }) => {
+        // 初始处理
+        processExifBatch().catch(err => console.error('EXIF 提取错误:', err))
+        // 定期处理
+        setInterval(() => {
+            processExifBatch().catch(err => console.error('EXIF 提取错误:', err))
+        }, 20000)
+    })
+
     createWindow()
 
     app.on('activate', () => {
