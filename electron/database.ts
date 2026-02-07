@@ -184,6 +184,15 @@ export async function initDatabase(): Promise<void> {
 
         // 补全已有数据的经纬度
         backfillLocationData()
+
+        // 一次性重置 EXIF 数据，使用新引擎重新扫描
+        const resetMarkerPath = path.join(dbDir, '.exif_reset_v2')
+        if (!fs.existsSync(resetMarkerPath)) {
+            console.log('>>> 重置 EXIF 数据，准备使用 exiftool-vendored 重新扫描...')
+            const resetResult = db.prepare(`UPDATE media_items SET exif_data = NULL, latitude = NULL, longitude = NULL WHERE type = 'image'`).run()
+            console.log(`>>> EXIF 重置完成: ${resetResult.changes} 条记录已标记为待重新扫描`)
+            fs.writeFileSync(resetMarkerPath, new Date().toISOString())
+        }
     } catch (err) {
         console.error('数据库迁移失败:', err)
     }
@@ -601,13 +610,17 @@ function backfillLocationData() {
 }
 
 /**
- * 获取待处理 EXIF 的媒体项（图片且没有 exif_data 的）
+ * 获取待处理 EXIF 的媒体项
+ * 包括：1) 尚未处理的；2) 处理过但数据为空的（需要重新扫描）
  */
 export function getPendingExifItems(limit: number = 50): { id: number; path: string }[] {
     return db.prepare(`
         SELECT id, path FROM media_items 
         WHERE type = 'image' 
-          AND exif_data IS NULL 
+          AND (
+            exif_data IS NULL 
+            OR (exif_data = '{}' AND latitude IS NULL)
+          )
         ORDER BY created_at DESC 
         LIMIT ?
     `).all(limit) as { id: number; path: string }[]

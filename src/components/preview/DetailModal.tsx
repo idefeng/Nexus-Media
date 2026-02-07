@@ -142,47 +142,14 @@ export function DetailModal({
                 >
                     {/* 左侧预览区域容器 */}
                     <div className="flex-1 relative flex flex-col h-full overflow-hidden">
-                        {/* 关闭按钮 */}
-                        <button
-                            onClick={onClose}
-                            className="absolute top-4 right-4 z-30 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                            title="关闭 (ESC)"
-                        >
-                            <X className="w-6 h-6 text-white" />
-                        </button>
-
-                        {/* 收藏按钮 */}
-                        <button
-                            onClick={() => onFavoriteToggle(item.id)}
-                            className={`absolute top-4 right-16 z-20 p-2 rounded-full transition-colors ${item.isFavorite
-                                ? 'bg-neon-pink/20 hover:bg-neon-pink/30'
-                                : 'bg-white/10 hover:bg-white/20'
-                                }`}
-                            title={item.isFavorite ? '取消收藏' : '添加收藏'}
-                        >
-                            <Heart className={`w-6 h-6 ${item.isFavorite ? 'text-neon-pink fill-neon-pink' : 'text-white'
-                                }`} />
-                        </button>
-
-                        {/* 删除按钮 */}
-                        {onDeleteItem && (
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDelete();
-                                }}
-                                className="absolute top-4 right-28 z-20 p-2 rounded-full bg-white/10 hover:bg-red-500/20 hover:text-red-500 transition-colors group"
-                                title="从图库中删除"
-                            >
-                                <Trash2 className="w-6 h-6 text-white group-hover:text-red-500" />
-                            </button>
-                        )}
-
-                        {/* 计数器 */}
-                        <div className="absolute top-4 left-4 z-20 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm">
-                            <span className="text-white text-sm">
-                                {currentIndex + 1} / {items.length}
-                            </span>
+                        {/* 顶部信息栏 */}
+                        <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4">
+                            {/* 计数器 */}
+                            <div className="px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm">
+                                <span className="text-white text-sm">
+                                    {currentIndex + 1} / {items.length}
+                                </span>
+                            </div>
                         </div>
 
                         {/* 左侧导航按钮 */}
@@ -209,7 +176,7 @@ export function DetailModal({
 
                         {/* 主内容区域 */}
                         <div
-                            className="flex-1 flex items-center justify-center p-16 w-full h-full"
+                            className="flex-1 flex items-center justify-center p-8 pb-20 w-full h-full"
                             onClick={(e) => {
                                 // 点击背景关闭，但忽略内容区域的点击
                                 if (e.target === e.currentTarget) {
@@ -239,6 +206,45 @@ export function DetailModal({
                                     )}
                                 </motion.div>
                             </AnimatePresence>
+                        </div>
+
+                        {/* 底部工具栏 - 删除、收藏、关闭 */}
+                        <div className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-center gap-6 p-4 bg-gradient-to-t from-black/60 to-transparent">
+                            {/* 删除按钮 */}
+                            {onDeleteItem && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDelete();
+                                    }}
+                                    className="p-3 rounded-full bg-white/10 hover:bg-red-500/30 transition-colors group"
+                                    title="从图库中删除"
+                                >
+                                    <Trash2 className="w-6 h-6 text-white group-hover:text-red-400" />
+                                </button>
+                            )}
+
+                            {/* 收藏按钮 */}
+                            <button
+                                onClick={() => onFavoriteToggle(item.id)}
+                                className={`p-3 rounded-full transition-colors ${item.isFavorite
+                                    ? 'bg-neon-pink/30 hover:bg-neon-pink/40'
+                                    : 'bg-white/10 hover:bg-white/20'
+                                    }`}
+                                title={item.isFavorite ? '取消收藏' : '添加收藏'}
+                            >
+                                <Heart className={`w-6 h-6 ${item.isFavorite ? 'text-neon-pink fill-neon-pink' : 'text-white'
+                                    }`} />
+                            </button>
+
+                            {/* 关闭按钮 */}
+                            <button
+                                onClick={onClose}
+                                className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                                title="关闭 (ESC)"
+                            >
+                                <X className="w-6 h-6 text-white" />
+                            </button>
                         </div>
                     </div>
 

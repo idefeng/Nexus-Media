@@ -61,11 +61,11 @@ export async function extractExifData(filePath: string): Promise<ExifData | null
             flash: tags.Flash ? String(tags.Flash) : undefined,
 
             // 时间
-            dateTimeOriginal: (tags.DateTimeOriginal || tags.CreateDate || tags.ContentCreateDate)?.toString(),
+            dateTimeOriginal: (tags.DateTimeOriginal || tags.CreateDate || (tags as any).ContentCreateDate)?.toString(),
 
-            // GPS (exiftool 自动处理十进制)
-            latitude: tags.GPSLatitude,
-            longitude: tags.GPSLongitude,
+            // GPS (exiftool 自动处理十进制，需要转换为 number)
+            latitude: typeof tags.GPSLatitude === 'number' ? tags.GPSLatitude : undefined,
+            longitude: typeof tags.GPSLongitude === 'number' ? tags.GPSLongitude : undefined,
             altitude: tags.GPSAltitude,
 
             // 尺寸与时长
@@ -93,25 +93,38 @@ export async function extractExifData(filePath: string): Promise<ExifData | null
  * 后台批量处理 EXIF 数据
  */
 export async function processExifBatch(): Promise<number> {
-    const pendingItems = getPendingExifItems(30)
+    try {
+        const pendingItems = getPendingExifItems(30)
 
-    if (pendingItems.length === 0) {
+        if (pendingItems.length === 0) {
+            return 0
+        }
+
+        console.log(`开始处理 EXIF 元数据: ${pendingItems.length} 个待处理项`)
+
+        let processed = 0
+        for (const item of pendingItems) {
+            try {
+                const exifData = await extractExifData(item.path)
+                updateExifData(item.id, exifData || {})
+                processed++
+
+                // 每处理10个输出一次进度
+                if (processed % 10 === 0) {
+                    console.log(`EXIF 处理进度: ${processed}/${pendingItems.length}`)
+                }
+            } catch (error) {
+                console.error(`处理元数据失败: ${item.path}`, error)
+                updateExifData(item.id, {})
+            }
+        }
+
+        console.log(`EXIF 批量处理完成: 成功处理 ${processed} 个文件`)
+        return processed
+    } catch (error) {
+        console.error('EXIF 批量处理出错:', error)
         return 0
     }
-
-    let processed = 0
-    for (const item of pendingItems) {
-        try {
-            const exifData = await extractExifData(item.path)
-            updateExifData(item.id, exifData || {})
-            processed++
-        } catch (error) {
-            console.error(`处理元数据失败: ${item.path}`, error)
-            updateExifData(item.id, {})
-        }
-    }
-
-    return processed
 }
 
 /**
