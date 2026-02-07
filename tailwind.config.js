@@ -8,30 +8,32 @@ export default {
     theme: {
         extend: {
             colors: {
-                // 深色背景色系
+                // Graphite Gray Palette
                 'nexus-bg': {
-                    DEFAULT: '#0a0a0f',
-                    secondary: '#12121a',
-                    tertiary: '#1a1a24',
-                    hover: '#22222e'
+                    DEFAULT: '#121212', // Graphite Base
+                    secondary: '#1C1C1E', // Graphite Secondary
+                    tertiary: '#2C2C2E', // Graphite Tertiary
+                    hover: '#3A3A3C'
                 },
-                // 霓虹强调色
+                // Electric Blue & Accents
                 'neon': {
                     cyan: '#00f0ff',
                     purple: '#bf00ff',
                     green: '#00ff88',
-                    pink: '#ff0080'
+                    pink: '#ff0080',
+                    electric: '#2997FF' // Electric Blue
                 },
-                // 文字颜色
+                // Text Colors
                 'nexus-text': {
-                    primary: '#ffffff',
-                    secondary: '#a0a0b0',
-                    muted: '#606070'
+                    primary: '#FFFFFF',
+                    secondary: '#EBEBF5', // 60% White
+                    muted: '#8E8E93' // Gray
                 }
             },
             fontFamily: {
-                'display': ['Outfit', 'sans-serif'],
-                'body': ['IBM Plex Sans', 'sans-serif']
+                'display': ['Inter', 'sans-serif'],
+                'body': ['Inter', 'sans-serif'],
+                'mono': ['JetBrains Mono', 'monospace']
             },
             boxShadow: {
                 'neon-cyan': '0 0 20px rgba(0, 240, 255, 0.3)',

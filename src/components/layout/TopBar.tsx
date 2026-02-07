@@ -101,6 +101,21 @@ export function TopBar({
         return () => clearTimeout(timer)
     }, [searchQuery, isSemanticMode, onSemanticSearch, onSemanticResults, isDescriptiveQuery])
 
+    // Keyboard shortcut for search
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault()
+                const searchInput = document.querySelector<HTMLInputElement>('input[type="text"]')
+                if (searchInput) {
+                    searchInput.focus()
+                }
+            }
+        }
+        window.addEventListener('keydown', handleKeyDown)
+        return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [])
+
     const handleMinimize = () => {
         if (isElectron) {
             window.electronAPI.window.minimize()
@@ -144,72 +159,85 @@ export function TopBar({
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.4 }}
-            className="h-14 glass-panel border-b border-white/5 flex items-center justify-between px-4 drag-region"
+            className="h-16 glass-panel border-b border-white/5 flex items-center justify-between px-6 drag-region z-50 relative"
         >
             {/* 左侧 - Logo 和标题 */}
-            <div className="flex items-center gap-3 no-drag">
-                <div className="relative">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-neon-cyan to-neon-purple flex items-center justify-center">
-                        <Sparkles className="w-4 h-4 text-white" />
+            <div className="flex items-center gap-3 no-drag w-64">
+                <div className="relative group cursor-pointer">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-neon-electric to-neon-purple flex items-center justify-center shadow-lg shadow-neon-electric/20 group-hover:shadow-neon-electric/40 transition-shadow duration-300">
+                        <Sparkles className="w-5 h-5 text-white" />
                     </div>
-                    <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-neon-cyan to-neon-purple blur-lg opacity-50" />
+                    <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-neon-electric to-neon-purple blur-md opacity-40 group-hover:opacity-60 transition-opacity" />
                 </div>
-                <h1 className="font-display font-bold text-lg bg-gradient-to-r from-white to-nexus-text-secondary bg-clip-text text-transparent">
-                    Nexus Media
-                </h1>
+                <div>
+                    <h1 className="font-display font-bold text-lg leading-tight bg-gradient-to-r from-white to-nexus-text-secondary bg-clip-text text-transparent">
+                        Nexus Media
+                    </h1>
+                    <span className="text-[10px] text-nexus-text-muted font-mono tracking-wider">PRO MAX</span>
+                </div>
             </div>
 
-            {/* 中间 - 搜索框和扫描状态 */}
-            <div className="flex-1 max-w-xl mx-8 no-drag">
+            {/* 中间 - 搜索框 (Command-K Style) */}
+            <div className="flex-1 max-w-2xl mx-auto no-drag relative">
                 {isScanning ? (
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="flex items-center gap-3 px-4 py-2 rounded-lg bg-neon-cyan/10 border border-neon-cyan/30"
+                        className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-neon-cyan/10 border border-neon-cyan/30 w-full justify-center"
                     >
                         <Loader2 className="w-4 h-4 text-neon-cyan animate-spin" />
-                        <span className="text-sm text-neon-cyan truncate flex-1">
-                            {scanStatus || '正在扫描...'}
+                        <span className="text-sm text-neon-cyan font-medium">
+                            {scanStatus || 'Updating Library...'}
                         </span>
                     </motion.div>
                 ) : (
-                    <div className="relative group">
-                        {/* 搜索图标或 AI 图标 */}
-                        {isSearching ? (
-                            <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neon-purple animate-spin" />
-                        ) : isSemanticMode ? (
-                            <Brain className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neon-purple" />
-                        ) : (
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-nexus-text-muted group-focus-within:text-neon-cyan transition-colors" />
-                        )}
+                    <div className="relative group w-full">
+                        <div className={`absolute inset-0 rounded-xl transition-opacity duration-300 pointer-events-none ${isSearching || isSemanticMode ? 'bg-neon-purple/10 opacity-100' : 'bg-neon-electric/5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
+                            }`} />
 
-                        <input
-                            type="text"
-                            placeholder={isSemanticMode ? "输入描述进行 AI 语义搜索..." : "搜索媒体资源..."}
-                            value={searchQuery}
-                            onChange={(e) => onSearchChange(e.target.value)}
-                            className={`neon-input pl-10 pr-20 ${isSemanticMode ? 'border-neon-purple/30 focus:border-neon-purple' : ''}`}
-                        />
+                        <div className="relative flex items-center">
+                            {/* Icon */}
+                            <div className="absolute left-4 text-nexus-text-muted transition-colors group-focus-within:text-neon-electric">
+                                {isSearching ? (
+                                    <Loader2 className="w-4 h-4 animate-spin text-neon-purple" />
+                                ) : isSemanticMode ? (
+                                    <Brain className="w-4 h-4 text-neon-purple" />
+                                ) : (
+                                    <Search className="w-4 h-4" />
+                                )}
+                            </div>
 
-                        {/* 语义搜索切换按钮 */}
-                        {isSemanticSearchEnabled && onSemanticSearch && (
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={toggleSemanticMode}
-                                className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${isSemanticMode
-                                    ? 'bg-neon-purple/20 text-neon-purple border border-neon-purple/30'
-                                    : 'bg-white/5 text-nexus-text-muted hover:bg-white/10'
-                                    }`}
-                                title={isSemanticMode ? '关闭 AI 搜索' : '开启 AI 语义搜索'}
-                            >
-                                <Zap className="w-3 h-3" />
-                                <span>AI</span>
-                            </motion.button>
-                        )}
+                            <input
+                                type="text"
+                                placeholder={isSemanticMode ? "Describe what you're looking for..." : "Search media, tags, or commands..."}
+                                value={searchQuery}
+                                onChange={(e) => onSearchChange(e.target.value)}
+                                className={`w-full bg-nexus-bg-tertiary/50 border border-white/10 rounded-xl py-2.5 pl-11 pr-32 text-sm text-white placeholder-nexus-text-muted focus:outline-none focus:border-neon-electric/50 focus:bg-nexus-bg-tertiary transition-all duration-300 shadow-inner`}
+                            />
 
-                        {/* 搜索框发光效果 */}
-                        <div className={`absolute inset-0 rounded-lg ${isSemanticMode ? 'bg-neon-purple/5' : 'bg-neon-cyan/5'} opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none`} />
+                            {/* Right Actions */}
+                            <div className="absolute right-2 flex items-center gap-2">
+                                {/* Semantic Toggle */}
+                                {isSemanticSearchEnabled && onSemanticSearch && (
+                                    <button
+                                        onClick={toggleSemanticMode}
+                                        className={`p-1.5 rounded-lg transition-all ${isSemanticMode
+                                            ? 'bg-neon-purple/20 text-neon-purple shadow-[0_0_10px_rgba(191,0,255,0.3)]'
+                                            : 'text-nexus-text-muted hover:text-white hover:bg-white/5'
+                                            }`}
+                                        title={isSemanticMode ? 'Disable AI Search' : 'Enable AI Search'}
+                                    >
+                                        <Zap className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
+
+                                {/* Shortcut Hint */}
+                                <div className="hidden sm:flex items-center gap-1 px-1.5 py-1 rounded-md bg-white/5 border border-white/5 text-[10px] font-mono text-nexus-text-muted pointer-events-none select-none">
+                                    <span className="text-xs">⌘</span>
+                                    <span>K</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -217,12 +245,19 @@ export function TopBar({
                 <AnimatePresence>
                     {isSemanticMode && semanticResults && semanticResults.length > 0 && (
                         <motion.div
-                            initial={{ opacity: 0, y: -5 }}
+                            initial={{ opacity: 0, y: 5 }}
                             animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -5 }}
-                            className="absolute mt-1 text-xs text-neon-purple"
+                            exit={{ opacity: 0, y: 5 }}
+                            className="absolute left-0 right-0 mt-2 p-3 rounded-xl bg-nexus-bg-secondary/95 backdrop-blur-xl border border-neon-purple/20 shadow-2xl shadow-neon-purple/10 z-50 transform origin-top"
                         >
-                            找到 {semanticResults.length} 个语义匹配结果
+                            <div className="flex items-center justify-between text-xs text-neon-purple mb-2 px-1">
+                                <span className="flex items-center gap-1.5">
+                                    <Sparkles className="w-3 h-3" />
+                                    AI Semantic Match
+                                </span>
+                                <span className="font-mono opacity-70">{semanticResults.length} results found</span>
+                            </div>
+                            {/* Simple list preview could go here if implemented */}
                         </motion.div>
                     )}
                 </AnimatePresence>

@@ -3,6 +3,7 @@
  * 主应用组件
  */
 import { useState, useMemo, useEffect, useCallback } from 'react'
+import { Dashboard } from './components/dashboard/Dashboard'
 import { TopBar, Sidebar } from './components/layout'
 import { MediaGrid } from './components/media'
 import { DetailModal } from './components/preview'
@@ -12,7 +13,7 @@ import type { ViewType, MediaItem, ScanProgress, TagStat } from './types'
 
 function App() {
     // 状态管理
-    const [currentView, setCurrentView] = useState<ViewType>('all')
+    const [currentView, setCurrentView] = useState<ViewType>('dashboard')
     const [searchQuery, setSearchQuery] = useState('')
     const [selectedTag, setSelectedTag] = useState<string | null>(null)
     const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
@@ -467,19 +468,31 @@ function App() {
                 />
 
                 {/* 媒体展示区 */}
-                <main className="flex-1 flex flex-col overflow-hidden bg-nexus-bg">
-                    <MediaGrid
-                        items={filteredItems}
-                        currentView={currentView}
-                        selectedTag={selectedTag}
-                        onFavoriteToggle={handleFavoriteToggle}
-                        onItemClick={handleItemClick}
-                        onDeleteItem={handleDeleteItem}
-                        onBatchDelete={handleBatchDelete}
-                        onBatchAddTags={handleBatchAddTags}
-                        onRefresh={loadMediaFromDB}
-                        allTags={allTags}
-                    />
+                <main className="flex-1 flex flex-col overflow-hidden bg-nexus-bg relative">
+                    {currentView === 'dashboard' ? (
+                        <Dashboard
+                            mediaCount={mediaCount}
+                            recentItems={mediaItems
+                                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                                .slice(0, 10)
+                            }
+                            onNavigate={setCurrentView}
+                            onItemClick={handleItemClick}
+                        />
+                    ) : (
+                        <MediaGrid
+                            items={filteredItems}
+                            currentView={currentView}
+                            selectedTag={selectedTag}
+                            onFavoriteToggle={handleFavoriteToggle}
+                            onItemClick={handleItemClick}
+                            onDeleteItem={handleDeleteItem}
+                            onBatchDelete={handleBatchDelete}
+                            onBatchAddTags={handleBatchAddTags}
+                            onRefresh={loadMediaFromDB}
+                            allTags={allTags}
+                        />
+                    )}
                 </main>
             </div>
 

@@ -5,6 +5,7 @@
 import { motion } from 'framer-motion'
 import {
     LayoutGrid,
+    LayoutDashboard,
     Clock,
     Heart,
     Tags,
@@ -35,6 +36,7 @@ interface SidebarProps {
 
 // 导航菜单配置
 const navItems = [
+    { id: 'dashboard' as ViewType, label: '仪表盘', icon: LayoutDashboard },
     { id: 'all' as ViewType, label: '所有媒体', icon: LayoutGrid },
     { id: 'recent' as ViewType, label: '最近添加', icon: Clock },
     { id: 'favorites' as ViewType, label: '收藏夹', icon: Heart }
