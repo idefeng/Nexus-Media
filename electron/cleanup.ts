@@ -29,34 +29,46 @@ export async function calculateMd5(filePath: string): Promise<string> {
     })
 }
 
+let isMd5Processing = false
+
 /**
  * 批量处理 MD5 哈希计算
  */
 export async function processMd5Batch(): Promise<number> {
-    const pendingItems = getPendingMd5Items(30)
+    if (isMd5Processing) return 0
+    isMd5Processing = true
 
-    if (pendingItems.length === 0) {
-        return 0
-    }
+    try {
+        const pendingItems = getPendingMd5Items(30)
 
-    let processed = 0
-    for (const item of pendingItems) {
-        try {
-            if (fs.existsSync(item.path)) {
-                const hash = await calculateMd5(item.path)
-                updateMd5Hash(item.id, hash)
-                processed++
-            }
-        } catch (error) {
-            console.error(`MD5 计算失败: ${item.path}`, error)
+        if (pendingItems.length === 0) {
+            return 0
         }
-    }
 
-    if (processed > 0) {
-        console.log(`MD5 批处理: 处理了 ${processed} 个文件`)
-    }
+        let processed = 0
+        for (const item of pendingItems) {
+            try {
+                if (fs.existsSync(item.path)) {
+                    const hash = await calculateMd5(item.path)
+                    updateMd5Hash(item.id, hash)
+                    processed++
+                }
+            } catch (error) {
+                console.error(`MD5 计算失败: ${item.path}`, error)
+            }
+        }
 
-    return processed
+        if (processed > 0) {
+            console.log(`MD5 批处理: 处理了 ${processed} 个文件`)
+        }
+
+        return processed
+    } catch (error) {
+        console.error('MD5 批处理过程出错:', error)
+        return 0
+    } finally {
+        isMd5Processing = false
+    }
 }
 
 /**

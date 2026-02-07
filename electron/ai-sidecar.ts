@@ -318,62 +318,71 @@ export async function semanticSearch(queryText: string, limit: number = 20): Pro
     }
 }
 
+let isAnalysisProcessing = false
+
 /**
  * 后台批量处理待分析的图片
  */
 export async function processBackgroundAnalysis(): Promise<void> {
+    if (isAnalysisProcessing) return
     if (!isServerReady) {
         console.log('AI 服务未就绪，跳过后台分析')
         return
     }
 
-    const pendingItems = getPendingAiItems(5) // 每次处理 5 张
-    if (pendingItems.length === 0) {
-        // 后台清理：对未归类人脸尝试聚类
-        await processFacesAndClustering()
-        return
-    }
+    isAnalysisProcessing = true
 
-    console.log(`后台 AI 分析: 处理 ${pendingItems.length} 张图片`)
-
-    for (const item of pendingItems) {
-        try {
-            // 1. 基础分析 (CLIP)
-            const result = await analyzeImage(item.path)
-            if (result.success && result.tags && result.embedding) {
-                const tagNames = result.tags.map(t => t.name)
-                updateAiTags(item.id, tagNames)
-                updateEmbedding(item.id, result.embedding)
-                console.log(`AI 分析完成: ${item.name} -> ${tagNames.join(', ')}`)
-            }
-
-            // 2. 人脸检测 (Face)
-            const faceResult = await detectFaces(item.path)
-            if (faceResult.success && faceResult.faces) {
-                for (const face of faceResult.faces) {
-                    insertFace({
-                        media_id: item.id,
-                        person_id: null,
-                        embedding: Buffer.from(new Float32Array(face.embedding).buffer),
-                        bbox: JSON.stringify(face.bbox),
-                        confidence: face.confidence,
-                        thumbnail_path: face.thumbnail_path || null
-                    })
-                }
-                if (faceResult.faces.length > 0) {
-                    console.log(`人脸检测完成: ${item.name} -> 发现 ${faceResult.faces.length} 张人脸`)
-                }
-            }
-        } catch (err) {
-            console.error(`AI 分析失败: ${item.path}`, err)
+    try {
+        const pendingItems = getPendingAiItems(5) // 每次处理 5 张
+        if (pendingItems.length === 0) {
+            // 后台清理：对未归类人脸尝试聚类
+            await processFacesAndClustering()
+            return
         }
 
-        // 每张图片处理后等待一小段时间，避免占用太多资源
-        await new Promise(resolve => setTimeout(resolve, 100))
-    }
+        console.log(`后台 AI 分析: 处理 ${pendingItems.length} 张图片`)
 
-    // 后台清理：对未归类人脸尝试聚类
-    await processFacesAndClustering()
+        for (const item of pendingItems) {
+            try {
+                // 1. 基础分析 (CLIP)
+                const result = await analyzeImage(item.path)
+                if (result.success && result.tags && result.embedding) {
+                    const tagNames = result.tags.map(t => t.name)
+                    updateAiTags(item.id, tagNames)
+                    updateEmbedding(item.id, result.embedding)
+                    console.log(`AI 分析完成: ${item.name} -> ${tagNames.join(', ')}`)
+                }
+
+                // 2. 人脸检测 (Face)
+                const faceResult = await detectFaces(item.path)
+                if (faceResult.success && faceResult.faces) {
+                    for (const face of faceResult.faces) {
+                        insertFace({
+                            media_id: item.id,
+                            person_id: null,
+                            embedding: Buffer.from(new Float32Array(face.embedding).buffer),
+                            bbox: JSON.stringify(face.bbox),
+                            confidence: face.confidence,
+                            thumbnail_path: face.thumbnail_path || null
+                        })
+                    }
+                    if (faceResult.faces.length > 0) {
+                        console.log(`人脸检测完成: ${item.name} -> 发现 ${faceResult.faces.length} 张人脸`)
+                    }
+                }
+            } catch (err) {
+                console.error(`AI 分析失败: ${item.path}`, err)
+            }
+
+            // 每张图片处理后等待一小段时间，避免占用太多资源
+            await new Promise(resolve => setTimeout(resolve, 100))
+        }
+
+        // 后台清理：对未归类人脸尝试聚类
+        await processFacesAndClustering()
+    } finally {
+        isAnalysisProcessing = false
+    }
 }
 
 /**

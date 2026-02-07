@@ -16,7 +16,7 @@ import { scanFolders, type ScannedFile, type ScanProgress } from './scanner'
 import { initThumbnailsDir, startThumbnailBatch } from './thumbnails'
 import { startAiServer, stopAiServer, checkHealth, analyzeImage, semanticSearch, processBackgroundAnalysis, getAiStatus } from './ai-sidecar'
 import { generateCollage } from './studio'
-import { processMd5Batch, detectSimilarImages as getSimilarGroups, trashItems as trashMediaItems } from './cleanup'
+import { processMd5Batch, detectSimilarImages as getSimilarGroups, trashItems as trashMediaItems, detectBlurryImages } from './cleanup'
 
 // 注册自定义协议以加载本地文件
 protocol.registerSchemesAsPrivileged([
@@ -79,12 +79,22 @@ app.whenReady().then(() => {
         console.log('数据库初始化成功')
         // 初始化缩略图目录
         initThumbnailsDir()
-        // 启动后台扫描任务
+
+        // 启动后台任务调度器 (每10秒检查一次)
+        setInterval(async () => {
+            // 扫描缩略图
+            await startThumbnailBatch()
+            // AI 背景分析 (CLIP, Face)
+            await processBackgroundAnalysis()
+            // MD5 与 清理相关
+            await processMd5Batch()
+        }, 10000)
+
+        // 立即执行一次
         startThumbnailBatch()
-        // 启动后台分析任务
         processBackgroundAnalysis()
-        // 启动 MD5 计算任务
         processMd5Batch()
+
     }).catch(err => {
         console.error('数据库初始化失败:', err)
     })
@@ -295,7 +305,7 @@ ipcMain.handle('cleanup:analyze', async () => {
                 stats: {
                     ...stats,
                     similarGroups: similarImages.length,
-                    similarFiles: similarImages.reduce((sum, g) => sum + g.items.length, 0),
+                    similarFiles: similarImages.reduce((sum: number, g: any) => sum + g.items.length, 0),
                     potentialSavings: stats.duplicateSize + 0 // 这里可以增加更多估算
                 },
                 exactDuplicates,
@@ -323,7 +333,6 @@ ipcMain.handle('cleanup:trashItems', async (_event, ids) => {
 
 ipcMain.handle('cleanup:calculateFocusScore', async (_event, imagePath) => {
     try {
-        const { detectBlurryImages } = await import('./cleanup')
         const result = await detectBlurryImages([imagePath])
         return { success: true, data: result[0] }
     } catch (error: any) {
