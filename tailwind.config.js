@@ -32,9 +32,10 @@ export default {
                 'nexus-border': 'var(--nexus-border)'
             },
             fontFamily: {
-                'display': ['Inter', 'sans-serif'],
-                'body': ['Inter', 'sans-serif'],
-                'mono': ['JetBrains Mono', 'monospace']
+                'sans': ['"HarmonyOS Sans SC"', '"PingFang SC"', '"Microsoft YaHei"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                'display': ['"HarmonyOS Sans SC"', '"PingFang SC"', 'Inter', 'system-ui', 'sans-serif'],
+                'body': ['"HarmonyOS Sans SC"', '"PingFang SC"', 'Inter', 'system-ui', 'sans-serif'],
+                'mono': ['"JetBrains Mono"', 'monospace']
             },
             boxShadow: {
                 'clean': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',

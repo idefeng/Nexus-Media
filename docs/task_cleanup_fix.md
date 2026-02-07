@@ -33,3 +33,7 @@
 - `src/components/layout/TopBar.tsx`: 重新布局功能按钮。
 - `src/components/cleanup/CleanupDashboard.tsx`: 支持增量数据展示。
 - `src/locales/zh/translation.json`: 补全翻译。
+
+### 4. 视觉排版优化
+- **中西文混排优化**：在 `tailwind.config.js` 中定制了以 'HarmonyOS Sans SC' 为核心的字体族，解决了 Windows 平台渲染不清晰的问题。
+- **排版规范化**：在 `src/index.css` 中统一了全局行高（1.5）与字体平滑选项，显著提升了大数据量列表下的阅读舒适度。
