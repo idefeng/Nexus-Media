@@ -195,6 +195,28 @@ export function Dashboard({ mediaCount, recentItems, onNavigate, onItemClick }: 
                         </button>
                     </motion.div>
 
+                    {/* Cleanup Assistant Card - 2x1 */}
+                    <motion.div
+                        variants={item}
+                        onClick={() => onNavigate('cleanup')}
+                        className="col-span-1 md:col-span-2 row-span-1 bg-gradient-to-br from-neon-pink/5 to-neon-cyan/5 rounded-2xl p-6 border border-neon-pink/20 flex items-center justify-between group hover:border-neon-pink/40 transition-all shadow-sm cursor-pointer hover:shadow-md"
+                    >
+                        <div>
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="w-8 h-8 rounded-lg bg-neon-pink/10 flex items-center justify-center">
+                                    <Grid className="w-4 h-4 text-neon-pink" />
+                                </div>
+                                <h3 className="font-bold text-lg text-nexus-text-primary">{t('cleanup.title', '清理助手')}</h3>
+                            </div>
+                            <p className="text-sm text-nexus-text-secondary max-w-md">
+                                {t('cleanup.description', '检测并清理重复文件、相似照片和低质量图片，释放存储空间')}
+                            </p>
+                        </div>
+                        <button className="px-4 py-2 bg-neon-pink/10 text-neon-pink rounded-lg font-medium text-sm group-hover:bg-neon-pink/20 transition-colors">
+                            {t('cleanup.rescan', '开始扫描')}
+                        </button>
+                    </motion.div>
+
                     {/* Storage / System Status - 1x1 */}
                     <motion.div
                         variants={item}
