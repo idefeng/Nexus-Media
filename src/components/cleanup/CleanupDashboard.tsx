@@ -7,8 +7,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import {
     Trash2, Copy, Image, AlertTriangle, RefreshCw,
-    ChevronLeft, ChevronRight, Check, X, HardDrive,
-    Loader2, Zap
+    ChevronLeft, ChevronRight, Check, HardDrive,
+    Loader2, Zap, Activity
 } from 'lucide-react'
 
 // 格式化文件大小
@@ -61,26 +61,36 @@ function StatCard({
     color?: 'cyan' | 'pink' | 'yellow' | 'green'
 }) {
     const colorClasses = {
-        cyan: 'text-neon-cyan bg-neon-cyan/10 border-neon-cyan/30',
-        pink: 'text-neon-pink bg-neon-pink/10 border-neon-pink/30',
-        yellow: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
-        green: 'text-neon-green bg-neon-green/10 border-neon-green/30'
+        cyan: 'text-neon-cyan border-neon-cyan/20 bg-neon-cyan/5 shadow-[0_0_15px_-3px_rgba(0,255,255,0.1)]',
+        pink: 'text-neon-pink border-neon-pink/20 bg-neon-pink/5 shadow-[0_0_15px_-3px_rgba(255,0,255,0.1)]',
+        yellow: 'text-yellow-400 border-yellow-400/20 bg-yellow-400/5 shadow-[0_0_15px_-3px_rgba(250,204,21,0.1)]',
+        green: 'text-neon-green border-neon-green/20 bg-neon-green/5 shadow-[0_0_15px_-3px_rgba(57,255,20,0.1)]'
     }
 
     return (
         <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`p-4 rounded-xl border ${colorClasses[color]} backdrop-blur-sm`}
+            whileHover={{ y: -2, transition: { duration: 0.2 } }}
+            className={`p-5 rounded-2xl border ${colorClasses[color]} backdrop-blur-md flex flex-col justify-between h-full transition-all duration-300`}
         >
-            <div className="flex items-center gap-3">
-                <Icon className="w-8 h-8 opacity-80" />
-                <div>
-                    <p className="text-2xl font-bold">{value}</p>
-                    <p className="text-sm opacity-70">{label}</p>
-                    {subValue && <p className="text-xs opacity-50 mt-1">{subValue}</p>}
+            <div className="flex items-start justify-between">
+                <div className="p-2 rounded-lg bg-black/5 dark:bg-white/5">
+                    <Icon className="w-6 h-6" />
+                </div>
+                <div className="text-right">
+                    <p className="text-2xl font-bold font-mono tracking-tight">{value}</p>
+                    <p className="text-[10px] uppercase font-bold tracking-widest opacity-60">{label}</p>
                 </div>
             </div>
+            {subValue && (
+                <div className="mt-4 pt-3 border-t border-current/10">
+                    <p className="text-xs opacity-60 flex items-center gap-1 font-medium">
+                        <Activity className="w-3 h-3" />
+                        {subValue}
+                    </p>
+                </div>
+            )}
         </motion.div>
     )
 }
@@ -270,6 +280,45 @@ function SimilarGroup({
     )
 }
 
+// 成功提示组件
+function SuccessOverlay({ count, size, onClose }: { count: number, size: number, onClose: () => void }) {
+    useEffect(() => {
+        const timer = setTimeout(onClose, 3000)
+        return () => clearTimeout(timer)
+    }, [onClose])
+
+    return (
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        >
+            <motion.div
+                initial={{ scale: 0.8, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.8, opacity: 0, y: 20 }}
+                className="bg-nexus-bg-secondary border border-neon-green/30 p-8 rounded-3xl shadow-2xl shadow-neon-green/20 text-center max-w-sm w-full mx-4"
+            >
+                <div className="w-20 h-20 bg-neon-green/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Check className="w-10 h-10 text-neon-green" />
+                </div>
+                <h3 className="text-2xl font-bold text-nexus-text-primary mb-2">清理完成</h3>
+                <p className="text-nexus-text-secondary mb-6">
+                    成功释放了 <span className="text-neon-green font-bold">{formatFileSize(size)}</span> 空间<br />
+                    移动了 {count} 个文件到回收站
+                </p>
+                <button
+                    onClick={onClose}
+                    className="w-full py-3 bg-neon-green/20 text-neon-green rounded-xl font-bold hover:bg-neon-green/30 transition-colors"
+                >
+                    太棒了
+                </button>
+            </motion.div>
+        </motion.div>
+    )
+}
+
 export function CleanupDashboard() {
     const { t } = useTranslation()
     const [analysis, setAnalysis] = useState<CleanupAnalysis | null>(null)
@@ -277,6 +326,8 @@ export function CleanupDashboard() {
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
     const [activeTab, setActiveTab] = useState<'duplicates' | 'similar' | 'lowquality'>('duplicates')
     const [cleaning, setCleaning] = useState(false)
+    const [showSuccess, setShowSuccess] = useState(false)
+    const [lastCleanStats, setLastCleanStats] = useState({ count: 0, size: 0 })
 
     // 执行分析
     const runAnalysis = useCallback(async () => {
@@ -323,23 +374,36 @@ export function CleanupDashboard() {
     const handleClean = useCallback(async () => {
         if (selectedIds.size === 0) return
 
+        // 计算即将清理的大小
+        let totalSize = 0
+        if (analysis) {
+            const allItems = [
+                ...analysis.exactDuplicates.flatMap(g => g.items),
+                ...analysis.similarImages.flatMap(g => g.items),
+                ...analysis.lowQualityItems
+            ]
+            selectedIds.forEach(id => {
+                const item = allItems.find(i => i.id === id)
+                if (item && 'size' in item) totalSize += item.size
+            })
+        }
+
         setCleaning(true)
         try {
             const result = await window.electronAPI.cleanup.trashItems(Array.from(selectedIds))
             if (result.success) {
-                alert(`成功清理 ${result.successCount} 个文件！\n${result.failCount ? `失败 ${result.failCount} 个` : ''}`)
+                setLastCleanStats({ count: result.successCount, size: totalSize })
+                setShowSuccess(true)
+                setSelectedIds(new Set())
                 // 重新分析
                 runAnalysis()
-            } else {
-                alert(`清理失败: ${result.error}`)
             }
         } catch (error) {
             console.error('清理失败:', error)
-            alert('清理过程中发生错误')
         } finally {
             setCleaning(false)
         }
-    }, [selectedIds, runAnalysis])
+    }, [selectedIds, analysis, runAnalysis])
 
     // 全选当前标签页
     const selectAll = useCallback(() => {
@@ -567,52 +631,63 @@ export function CleanupDashboard() {
             </div>
 
             {/* 底部操作栏 */}
-            {selectedIds.size > 0 && (
-                <motion.div
-                    initial={{ y: 100 }}
-                    animate={{ y: 0 }}
-                    className="p-4 border-t border-nexus-border bg-nexus-bg-secondary flex items-center justify-between"
-                >
-                    <div className="flex items-center gap-4">
-                        <p className="text-nexus-text-primary">
-                            已选择 <span className="text-neon-pink font-bold">{selectedIds.size}</span> 个文件
-                        </p>
-                        <button
-                            onClick={selectAll}
-                            className="text-neon-cyan text-sm hover:underline"
-                        >
-                            全选当前页
-                        </button>
-                        <button
-                            onClick={() => setSelectedIds(new Set())}
-                            className="text-nexus-text-muted text-sm hover:text-nexus-text-secondary"
-                        >
-                            取消全部
-                        </button>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => setSelectedIds(new Set())}
-                            className="px-4 py-2 text-nexus-text-muted hover:text-nexus-text-secondary transition-colors"
-                        >
-                            <X className="w-4 h-4 inline mr-1" />
-                            {t('common.cancel', '取消')}
-                        </button>
-                        <button
-                            onClick={handleClean}
-                            disabled={cleaning}
-                            className="px-6 py-2 bg-gradient-to-r from-neon-pink to-neon-purple text-white rounded-lg font-medium hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
-                        >
-                            {cleaning ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                                <Trash2 className="w-4 h-4" />
-                            )}
-                            {t('cleanup.clean_selected', '清理选中项')}
-                        </button>
-                    </div>
-                </motion.div>
-            )}
+            <AnimatePresence>
+                {selectedIds.size > 0 && (
+                    <motion.div
+                        initial={{ y: 100, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: 100, opacity: 0 }}
+                        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4"
+                    >
+                        <div className="p-4 glass-panel border border-neon-pink/30 shadow-2xl shadow-neon-pink/10 rounded-2xl flex items-center justify-between">
+                            <div className="flex flex-col">
+                                <p className="text-nexus-text-primary text-sm font-medium">
+                                    {t('cleanup.selected_count', '已选择')} <span className="text-neon-pink font-bold">{selectedIds.size}</span> {t('cleanup.items', '个文件')}
+                                </p>
+                                <div className="flex items-center gap-4 mt-1">
+                                    <button
+                                        onClick={selectAll}
+                                        className="text-neon-cyan text-xs font-bold uppercase tracking-wider hover:opacity-80 transition-opacity"
+                                    >
+                                        {t('cleanup.select_all_page', '全选当前页')}
+                                    </button>
+                                    <button
+                                        onClick={() => setSelectedIds(new Set())}
+                                        className="text-nexus-text-muted text-xs font-bold uppercase tracking-wider hover:text-nexus-text-secondary transition-colors"
+                                    >
+                                        {t('cleanup.clear_selection', '取消选择')}
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={handleClean}
+                                    disabled={cleaning}
+                                    className="px-6 py-2.5 bg-gradient-to-r from-neon-pink to-neon-purple text-white rounded-xl font-bold text-sm hover:scale-105 active:scale-95 transition-all shadow-lg shadow-neon-pink/20 flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {cleaning ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                        <Trash2 className="w-4 h-4" />
+                                    )}
+                                    {t('cleanup.clean_selected', '立即删除')}
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* 成功层 */}
+            <AnimatePresence>
+                {showSuccess && (
+                    <SuccessOverlay
+                        count={lastCleanStats.count}
+                        size={lastCleanStats.size}
+                        onClose={() => setShowSuccess(false)}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     )
 }

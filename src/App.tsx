@@ -40,7 +40,7 @@ function App() {
             const result = await window.electronAPI.media.getAll()
             console.log('从数据库加载结果:', result)
             if (result.success && result.items) {
-                const items: MediaItem[] = result.items.map(recordToMediaItem)
+                const items: MediaItem[] = (result.items as MediaItemRecord[]).map(recordToMediaItem)
                 console.log('转换后的媒体项:', items)
                 setMediaItems(items)
                 setDbMediaCount(items.length)
