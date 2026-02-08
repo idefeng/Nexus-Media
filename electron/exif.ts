@@ -26,27 +26,44 @@ export interface ExifData {
     make?: string           // 相机品牌
     model?: string          // 相机型号
     software?: string       // 处理软件
+    lensModel?: string      // 镜头型号
+    serialNumber?: string   // 机身序列号
 
     // 拍摄参数
-    focalLength?: string    // 焦距
-    aperture?: number       // 光圈 (f/)
-    exposureTime?: string   // 快门速度
-    iso?: number            // ISO 感光度
-    flash?: string          // 闪光灯状态
+    focalLength?: string        // 焦距
+    focalLength35mm?: string    // 等效 35mm 焦距
+    aperture?: number           // 光圈 (f/)
+    exposureTime?: string       // 快门速度
+    exposureBias?: number       // 曝光补偿
+    iso?: number                // ISO 感光度
+    flash?: string              // 闪光灯状态
+    meteringMode?: string       // 测光模式
+    exposureProgram?: string    // 曝光程序
+    whiteBalance?: string       // 白平衡
+    colorSpace?: string         // 色彩空间
 
     // 时间
     dateTimeOriginal?: string   // 原始拍摄时间
+    modifyDate?: string         // 修改时间
+    createDate?: string         // 创建时间
 
     // GPS 信息
     latitude?: number       // 纬度 (十进制)
     longitude?: number      // 经度 (十进制)
     altitude?: number       // 海拔 (m)
+    gpsDateStamp?: string   // GPS 日期
 
     // 图像/视频信息
     width?: number          // 宽度
     height?: number         // 高度
     orientation?: number    // 方向
     duration?: number       // 时长 (秒)
+    bitDepth?: number       // 位深
+    fileSize?: string       // 文件大小
+    mimeType?: string       // MIME 类型
+
+    // 原始数据备份 (可选存储，为了极致最大化)
+    raw?: any
 }
 
 /**
@@ -55,9 +72,8 @@ export interface ExifData {
 export async function extractExifData(filePath: string): Promise<ExifData | null> {
     try {
         const tool = getExifTool()
-        // const tags = await tool.read(filePath) // Original simple read
 
-        // 强制的外部超时控制 (35秒 - 比库的 30秒 稍长，作为最后的安全网)
+        // 强制的外部超时控制 (35秒)
         const exifPromise = tool.read(filePath)
         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('HARD_TIMEOUT')), 35000))
 
@@ -65,32 +81,58 @@ export async function extractExifData(filePath: string): Promise<ExifData | null
 
         if (!tags) return null
 
+        // 提取尽可能全的信息
         const result: ExifData = {
             // 相机信息
             make: tags.Make,
             model: tags.Model,
             software: tags.Software,
+            lensModel: tags.LensModel || tags.LensType || tags.LensInfo,
+            serialNumber: tags.SerialNumber || tags.InternalSerialNumber,
 
             // 拍摄参数
             focalLength: tags.FocalLength ? String(tags.FocalLength) : undefined,
+            focalLength35mm: tags.FocalLengthIn35mmFormat || tags.FocalLength35efl,
             aperture: tags.FNumber || tags.ApertureValue,
             exposureTime: tags.ExposureTime ? String(tags.ExposureTime) : undefined,
-            iso: tags.ISO,
+            exposureBias: tags.ExposureCompensation,
+            iso: tags.ISO || tags.BaseISO,
             flash: tags.Flash ? String(tags.Flash) : undefined,
+            meteringMode: tags.MeteringMode,
+            exposureProgram: tags.ExposureProgram,
+            whiteBalance: tags.WhiteBalance,
+            colorSpace: tags.ColorSpace,
 
-            // 时间
+            // 时间 (多字段备选)
             dateTimeOriginal: (tags.DateTimeOriginal || tags.CreateDate || (tags as any).ContentCreateDate)?.toString(),
+            modifyDate: tags.ModifyDate?.toString(),
+            createDate: tags.CreateDate?.toString(),
 
-            // GPS (exiftool 自动处理十进制，需要转换为 number)
+            // GPS
             latitude: typeof tags.GPSLatitude === 'number' ? tags.GPSLatitude : undefined,
             longitude: typeof tags.GPSLongitude === 'number' ? tags.GPSLongitude : undefined,
             altitude: tags.GPSAltitude,
+            gpsDateStamp: tags.GPSDateStamp,
 
             // 尺寸与时长
-            width: tags.ImageWidth || tags.ExifImageWidth,
-            height: tags.ImageHeight || tags.ExifImageHeight,
+            width: tags.ImageWidth || tags.ExifImageWidth || tags.SourceImageWidth,
+            height: tags.ImageHeight || tags.ExifImageHeight || tags.SourceImageHeight,
             orientation: tags.Orientation as number,
-            duration: tags.Duration ? parseFloat(String(tags.Duration)) : undefined
+            duration: tags.Duration ? parseFloat(String(tags.Duration)) : undefined,
+            bitDepth: tags.BitDepth || tags.BitsPerSample,
+            fileSize: tags.FileSize,
+            mimeType: tags.MIMEType,
+
+            // 为了极致最大化，保存一些未被定义的 Tags 到 raw 中 (可选，如果数据库空间允许)
+            // 这里我们只保存一些有意义但没放在顶层的字段
+            raw: {
+                sceneCaptureType: tags.SceneCaptureType,
+                contrast: tags.Contrast,
+                saturation: tags.Saturation,
+                sharpness: tags.Sharpness,
+                digitalZoomRatio: tags.DigitalZoomRatio,
+                imageUniqueID: tags.ImageUniqueID
+            }
         }
 
         // 清理 undefined 值
