@@ -1,4 +1,15 @@
 {
+    "views": {
+        "dashboard": "Dashboard",
+        "all_media": "All Media",
+        "recently_added": "Recently Added",
+        "favorites": "Favorites",
+        "people": "People & Relationships",
+        "cleanup": "Cleanup Assistant",
+        "studio": "Creative Studio",
+        "settings": "Settings",
+        "map": "Footprint Map"
+    },
     "sidebar": {
         "browse": "Browse",
         "types": "Types",
@@ -11,6 +22,7 @@
         "settings": "Settings",
         "ai_tag_cloud": "AI Tag Cloud",
         "cleanup": "Cleanup Assistant",
+        "map": "Footprint Map",
         "studio": "Creative Studio",
         "people": "People"
     },
@@ -18,7 +30,12 @@
         "search_placeholder": "Search media, tags, or commands...",
         "semantic_placeholder": "Describe what you're looking for...",
         "scanning": "Scanning...",
-        "add_folder": "Add Folder"
+        "add_folder": "Add Folder",
+        "disable_ai_search": "Disable AI Search",
+        "enable_ai_search": "Enable AI Search",
+        "ai_semantic_match": "AI Semantic Match",
+        "results_found": "{{count}} results found",
+        "refresh_tooltip": "Refresh media list"
     },
     "dashboard": {
         "welcome_back": "Welcome Back",
@@ -33,7 +50,8 @@
         "recent_uploads": "Recent Uploads",
         "view_all": "View All",
         "ai_insights": "AI Insights",
-        "ai_insights_desc": "Optimize your library with smart tagging and duplicate detection."
+        "ai_insights_desc": "Optimize your library with smart tagging and duplicate detection.",
+        "no_recent_items": "No recent items"
     },
     "settings": {
         "title": "Application Settings",
@@ -67,7 +85,9 @@
         "ready": "Ready",
         "processing": "AI Processing: {{count}} items remaining",
         "scanning": "Scanning library...",
-        "total_items": "{{count}} items"
+        "total_items": "{{count}} items",
+        "ai_ready": "AI Ready",
+        "ai_not_ready": "AI Not Ready"
     },
     "cleanup": {
         "title": "Cleanup Assistant",
@@ -88,8 +108,22 @@
         "no_lowquality": "No low-quality photos found",
         "clean_selected": "Clean Selected"
     },
+    "slideshow": {
+        "play": "Play",
+        "pause": "Pause",
+        "prev": "Previous",
+        "next": "Next",
+        "shuffle": "Shuffle",
+        "ordered": "Ordered",
+        "exit": "Exit",
+        "speed": "Speed",
+        "seconds": "{{count}}s"
+    },
     "common": {
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "app_name": "Nexus Media",
+        "app_subtitle": "Next-Gen Intelligent Media Asset Management",
+        "slideshow": "Play Slideshow"
     },
     "studio": {
         "title": "AI Creative Studio",

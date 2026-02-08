@@ -38,7 +38,7 @@ export function StatusBar({ scanStatus, isScanning, dbCount, aiQueueCount = 0, a
                         {aiQueueCount > 0 ? (
                             <span>{t('status_bar.processing', { count: aiQueueCount })}</span>
                         ) : (
-                            <span>{aiStatus.ready ? 'AI 就绪' : 'AI 未就绪'}</span>
+                            <span>{aiStatus.ready ? t('status_bar.ai_ready') : t('status_bar.ai_not_ready')}</span>
                         )}
                     </div>
                 )}

@@ -3,8 +3,9 @@
  * 响应式网格布局展示媒体资源，集成虚拟滚动、多选和右键菜单
  */
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Image, Video, Inbox, CheckSquare, Users, Palette } from 'lucide-react'
+import { Image, Video, Inbox, CheckSquare, Users, Palette, MapPin } from 'lucide-react'
 import { VirtuosoGrid } from 'react-virtuoso'
 import { MediaCard } from './MediaCard'
 import { ContextMenu, createMediaContextMenuItems } from '../common/ContextMenu'
@@ -28,15 +29,16 @@ interface MediaGridProps {
 }
 
 // 视图标题配置
-const viewTitles: Record<ViewType, { title: string; icon: React.ReactNode }> = {
-    all: { title: '所有媒体', icon: <Image className="w-5 h-5" /> },
-    recent: { title: '最近添加', icon: <Video className="w-5 h-5" /> },
-    favorites: { title: '收藏夹', icon: <Inbox className="w-5 h-5" /> },
-    dashboard: { title: '仪表盘', icon: <Image className="w-5 h-5" /> },
-    settings: { title: '设置', icon: <Inbox className="w-5 h-5" /> },
-    cleanup: { title: '清理助手', icon: <Inbox className="w-5 h-5" /> },
-    studio: { title: '创意工作室', icon: <Palette className="w-5 h-5" /> },
-    people: { title: '人物与关系', icon: <Users className="w-5 h-5" /> }
+const viewTitles: Record<ViewType, { key: string; icon: React.ReactNode }> = {
+    all: { key: 'views.all_media', icon: <Image className="w-5 h-5" /> },
+    recent: { key: 'views.recently_added', icon: <Video className="w-5 h-5" /> },
+    favorites: { key: 'views.favorites', icon: <Inbox className="w-5 h-5" /> },
+    dashboard: { key: 'views.dashboard', icon: <Image className="w-5 h-5" /> },
+    settings: { key: 'views.settings', icon: <Inbox className="w-5 h-5" /> },
+    cleanup: { key: 'views.cleanup', icon: <Inbox className="w-5 h-5" /> },
+    studio: { key: 'views.studio', icon: <Palette className="w-5 h-5" /> },
+    people: { key: 'views.people', icon: <Users className="w-5 h-5" /> },
+    map: { key: 'views.map', icon: <MapPin className="w-5 h-5" /> }
 }
 
 export function MediaGrid({
@@ -52,7 +54,9 @@ export function MediaGrid({
     onRefresh,
     allTags = []
 }: MediaGridProps) {
-    const { title } = viewTitles[currentView]
+    const { t } = useTranslation()
+    const { title: titleKey } = { title: viewTitles[currentView].key }
+    const title = t(titleKey)
     const { preferences } = usePreferences()
 
     // 根据 gridSize 偏好设置网格列数

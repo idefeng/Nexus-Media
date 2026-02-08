@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
     Search,
+    Play,
     FolderPlus,
     Minus,
     Square,
@@ -36,6 +37,7 @@ interface TopBarProps {
     onSemanticSearch?: (query: string) => Promise<SemanticSearchResult[]>
     onSemanticResults?: (results: SemanticSearchResult[] | null) => void
     isSemanticSearchEnabled?: boolean
+    onPlaySlideshow?: () => void
 }
 
 export function TopBar({
@@ -47,7 +49,8 @@ export function TopBar({
     scanStatus = '',
     onSemanticSearch,
     onSemanticResults,
-    isSemanticSearchEnabled = true
+    isSemanticSearchEnabled = true,
+    onPlaySlideshow
 }: TopBarProps) {
     const { t } = useTranslation()
     const [isRefreshing, setIsRefreshing] = useState(false)
@@ -225,7 +228,7 @@ export function TopBar({
                                             ? 'bg-neon-purple/20 text-neon-purple shadow-sm'
                                             : 'text-nexus-text-muted hover:text-nexus-text-primary hover:bg-gray-200'
                                             }`}
-                                        title={isSemanticMode ? 'Disable AI Search' : 'Enable AI Search'}
+                                        title={isSemanticMode ? t('topbar.disable_ai_search') : t('topbar.enable_ai_search')}
                                     >
                                         <Zap className="w-3.5 h-3.5" />
                                     </button>
@@ -253,9 +256,9 @@ export function TopBar({
                             <div className="flex items-center justify-between text-xs text-neon-purple mb-2 px-1">
                                 <span className="flex items-center gap-1.5">
                                     <Sparkles className="w-3 h-3" />
-                                    AI Semantic Match
+                                    {t('topbar.ai_semantic_match')}
                                 </span>
-                                <span className="font-mono opacity-70">{semanticResults.length} results found</span>
+                                <span className="font-mono opacity-70">{t('topbar.results_found', { count: semanticResults.length })}</span>
                             </div>
                             {/* Simple list preview could go here if implemented */}
                         </motion.div>
@@ -284,6 +287,17 @@ export function TopBar({
                     </span>
                 </motion.button>
 
+                {/* 幻灯片播放按钮 */}
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={onPlaySlideshow}
+                    className="p-2.5 rounded-xl bg-white border border-gray-200 text-nexus-text-secondary hover:text-neon-purple hover:border-neon-purple/30 hover:shadow-clean transition-all flex items-center gap-2"
+                    title={t('common.slideshow')}
+                >
+                    <Play className="w-4 h-4" />
+                </motion.button>
+
                 {/* 刷新按钮 */}
                 <motion.button
                     whileHover={{ scale: 1.05 }}
@@ -291,7 +305,7 @@ export function TopBar({
                     onClick={handleRefresh}
                     disabled={isRefreshing}
                     className="p-2.5 rounded-xl bg-white border border-gray-200 text-nexus-text-secondary hover:text-nexus-text-primary hover:border-gray-300 hover:shadow-clean transition-all"
-                    title="刷新媒体列表"
+                    title={t('topbar.refresh_tooltip')}
                 >
                     <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                 </motion.button>

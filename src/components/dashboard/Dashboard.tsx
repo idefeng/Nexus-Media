@@ -150,7 +150,7 @@ export function Dashboard({ mediaCount, recentItems, onNavigate, onItemClick }: 
                             {recentItems.length === 0 && (
                                 <div className="col-span-2 flex flex-col items-center justify-center text-nexus-text-muted h-full">
                                     <Image className="w-8 h-8 mb-2 opacity-20" />
-                                    <span className="text-sm">No recent items</span>
+                                    <span className="text-sm">{t('dashboard.no_recent_items', 'No recent items')}</span>
                                 </div>
                             )}
                         </div>

@@ -1,4 +1,15 @@
 {
+    "views": {
+        "dashboard": "仪表盘",
+        "all_media": "所有媒体",
+        "recently_added": "最近添加",
+        "favorites": "收藏夹",
+        "people": "人物与关系",
+        "cleanup": "清理助手",
+        "studio": "创意工作室",
+        "settings": "设置",
+        "map": "足迹地图"
+    },
     "sidebar": {
         "browse": "浏览",
         "types": "类型",
@@ -19,7 +30,12 @@
         "search_placeholder": "搜索媒体、标签或命令...",
         "semantic_placeholder": "描述您想查找的内容...",
         "scanning": "扫描中...",
-        "add_folder": "添加文件夹"
+        "add_folder": "添加文件夹",
+        "disable_ai_search": "关闭 AI 搜索",
+        "enable_ai_search": "开启 AI 搜索",
+        "ai_semantic_match": "AI 语义匹配",
+        "results_found": "找到 {{count}} 个结果",
+        "refresh_tooltip": "刷新媒体列表"
     },
     "dashboard": {
         "welcome_back": "欢迎回来",
@@ -34,7 +50,8 @@
         "recent_uploads": "最近上传",
         "view_all": "查看全部",
         "ai_insights": "AI 洞察",
-        "ai_insights_desc": "通过智能标签和重复检测优化您的媒体库。"
+        "ai_insights_desc": "通过智能标签和重复检测优化您的媒体库。",
+        "no_recent_items": "没有最近上传的项目"
     },
     "settings": {
         "title": "应用设置",
@@ -68,7 +85,9 @@
         "ready": "就绪",
         "processing": "AI 处理中: 还剩 {{count}} 项",
         "scanning": "正在扫描图库...",
-        "total_items": "共 {{count}} 项"
+        "total_items": "共 {{count}} 项",
+        "ai_ready": "AI 就绪",
+        "ai_not_ready": "AI 未就绪"
     },
     "cleanup": {
         "title": "清理助手",
@@ -89,10 +108,22 @@
         "no_lowquality": "没有发现低质量照片",
         "clean_selected": "清理选中项"
     },
+    "slideshow": {
+        "play": "播放",
+        "pause": "暂停",
+        "prev": "上一个",
+        "next": "下一个",
+        "shuffle": "随机播放",
+        "ordered": "顺序播放",
+        "exit": "退出",
+        "speed": "播放速度",
+        "seconds": "{{count}}秒"
+    },
     "common": {
         "cancel": "取消",
         "app_name": "Nexus Media",
-        "app_subtitle": "下一代智能媒体资产管理系统"
+        "app_subtitle": "下一代智能媒体资产管理系统",
+        "slideshow": "幻灯片播放"
     },
     "studio": {
         "title": "AI 创意工作室",
