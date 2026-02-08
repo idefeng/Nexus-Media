@@ -344,6 +344,19 @@ export function getPendingThumbnailItems(limit: number = 500): { id: number; pat
 }
 
 /**
+ * 获取缩略图生成统计
+ */
+export function getThumbnailStats() {
+    const total = db.prepare("SELECT COUNT(*) as count FROM media_items").get() as any
+    const processed = db.prepare("SELECT COUNT(*) as count FROM media_items WHERE thumbnail_path IS NOT NULL").get() as any
+    return {
+        total: total.count,
+        processed: processed.count,
+        pending: total.count - processed.count
+    }
+}
+
+/**
  * 获取媒体统计
  */
 export function getMediaStats() {
@@ -492,6 +505,20 @@ export function getPendingAiCount(): number {
           AND embedding IS NULL
     `).get() as { count: number }
     return result.count
+}
+
+/**
+ * 获取 AI 分析统计
+ */
+export function getAiStats() {
+    const total = db.prepare("SELECT COUNT(*) as count FROM media_items WHERE type = 'image'").get() as any
+    const processed = db.prepare("SELECT COUNT(*) as count FROM media_items WHERE type = 'image' AND embedding IS NOT NULL").get() as any
+    const pending = getPendingAiCount()
+    return {
+        total: total.count,
+        processed: processed.count,
+        pending: pending
+    }
 }
 
 /**
@@ -677,6 +704,19 @@ export function getPendingMd5Items(limit: number = 50): { id: number; path: stri
         ORDER BY created_at DESC 
         LIMIT ?
     `).all(limit) as { id: number; path: string }[]
+}
+
+/**
+ * 获取 MD5 统计
+ */
+export function getMd5Stats() {
+    const total = db.prepare("SELECT COUNT(*) as count FROM media_items").get() as any
+    const processed = db.prepare("SELECT COUNT(*) as count FROM media_items WHERE md5_hash IS NOT NULL").get() as any
+    return {
+        total: total.count,
+        processed: processed.count,
+        pending: total.count - processed.count
+    }
 }
 
 /**

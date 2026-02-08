@@ -104,7 +104,28 @@ app.whenReady().then(() => {
 
             try {
                 const { configStore } = await import('./config-store')
+                const {
+                    getThumbnailStats,
+                    getMd5Stats,
+                    getExifStats,
+                    getAiStats
+                } = await import('./database')
+
                 const config = configStore.store
+
+                // ==================== 阶段性进度报告 ====================
+                const tStats = getThumbnailStats()
+                const mStats = getMd5Stats()
+                const eStats = getExifStats()
+                const aStats = getAiStats()
+
+                console.log('\n========= 后台任务进度概览 =========')
+                console.log(`[缩略图] 已处理: ${tStats.processed} / 总数: ${tStats.total} (剩余: ${tStats.pending})`)
+                console.log(`[MD5计算] 已处理: ${mStats.processed} / 总数: ${mStats.total} (剩余: ${mStats.pending})`)
+                console.log(`[EXIF提取] 已处理: ${eStats.processed} / 总数: ${eStats.total} (剩余: ${eStats.pending})`)
+                console.log(`[AI分析]  已处理: ${aStats.processed} / 总数: ${aStats.total} (剩余: ${aStats.pending})`)
+                console.log('===================================\n')
+                // =======================================================
 
                 console.log('[Scheduler] Heartbeat tick - Starting serialized sequence...')
 
