@@ -223,16 +223,16 @@ export const resetConfig = (): void => {
 
 // Add search to history (max 20 items)
 export const addSearchHistory = (query: string): void => {
-    const history = configStore.get('searchHistory')
-    const filtered = history.filter(q => q !== query)
+    const history = configStore.get('searchHistory') as string[]
+    const filtered = history.filter((q: string) => q !== query)
     filtered.unshift(query)
     configStore.set('searchHistory', filtered.slice(0, 20))
 }
 
 // Add scan directory
 export const addScanDirectory = (dirPath: string): boolean => {
-    const dirs = configStore.get('scanDirectories')
-    if (dirs.find(d => d.path === dirPath)) {
+    const dirs = configStore.get('scanDirectories') as ScanDirectory[]
+    if (dirs.find((d: ScanDirectory) => d.path === dirPath)) {
         return false // Already exists
     }
     dirs.push({
@@ -245,8 +245,8 @@ export const addScanDirectory = (dirPath: string): boolean => {
 
 // Remove scan directory
 export const removeScanDirectory = (dirPath: string): boolean => {
-    const dirs = configStore.get('scanDirectories')
-    const filtered = dirs.filter(d => d.path !== dirPath)
+    const dirs = configStore.get('scanDirectories') as ScanDirectory[]
+    const filtered = dirs.filter((d: ScanDirectory) => d.path !== dirPath)
     if (filtered.length === dirs.length) {
         return false // Not found
     }
@@ -256,8 +256,8 @@ export const removeScanDirectory = (dirPath: string): boolean => {
 
 // Update scan timestamp
 export const updateScanTimestamp = (dirPath: string): boolean => {
-    const dirs = configStore.get('scanDirectories')
-    const dir = dirs.find(d => d.path === dirPath)
+    const dirs = configStore.get('scanDirectories') as ScanDirectory[]
+    const dir = dirs.find((d: ScanDirectory) => d.path === dirPath)
     if (!dir) {
         return false
     }
