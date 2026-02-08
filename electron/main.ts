@@ -96,27 +96,44 @@ app.whenReady().then(() => {
         // 初始化缩略图目录
         initThumbnailsDir()
 
-        // 启动后台任务调度器 (每10秒检查一次)
+        // 改进的后台任务调度器：串行执行重型任务，避免资源竞争
+        let isTaskRunning = false
         setInterval(async () => {
-            const { configStore } = await import('./config-store')
-            const config = configStore.store
+            if (isTaskRunning) return
+            isTaskRunning = true
 
-            console.log('[Scheduler] Heartbeat tick...')
+            try {
+                const { configStore } = await import('./config-store')
+                const config = configStore.store
 
-            // 后台任务并行启动
-            startThumbnailBatch()
-            processMd5Batch()
+                console.log('[Scheduler] Heartbeat tick - Starting serialized sequence...')
 
-            // EXIF 只有在启用且自动提取时才运行
-            if (config.exif?.enabled && config.exif?.autoExtract) {
-                processExifBatch()
-            } else if (!config.exif?.autoExtract) {
-                console.log('[Scheduler] EXIF 自动提取已关闭，跳过。')
-            }
+                // 1. 基础任务 (缩略图始终需要)
+                console.log('[Scheduler] Step 1: Thumbnails...')
+                await startThumbnailBatch()
 
-            // AI 只有在启用且自动分析时才运行
-            if (config.ai?.enabled && config.ai?.autoAnalyze) {
-                processBackgroundAnalysis()
+                // 2. MD5 计算
+                console.log('[Scheduler] Step 2: MD5...')
+                await processMd5Batch()
+
+                // 3. EXIF 提取 (优先级较高)
+                if (config.exif?.enabled && config.exif?.autoExtract) {
+                    console.log('[Scheduler] Step 3: EXIF...')
+                    await processExifBatch()
+                }
+
+                // 4. AI 分析 (最耗资源，最后执行)
+                if (config.ai?.enabled && config.ai?.autoAnalyze) {
+                    console.log('[Scheduler] Step 4: AI Analysis...')
+                    await processBackgroundAnalysis()
+                }
+
+                console.log('[Scheduler] Sequence complete. Sleeping...')
+
+            } catch (error) {
+                console.error('[Scheduler] 任务序列执行出错:', error)
+            } finally {
+                isTaskRunning = false
             }
         }, 10000)
 

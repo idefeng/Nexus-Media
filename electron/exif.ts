@@ -12,8 +12,8 @@ let isProcessing = false
 function getExifTool() {
     if (!exiftool) {
         exiftool = new ExifTool({
-            taskTimeoutMillis: 30000, // 30秒超时
-            maxProcs: 2               // 允许2个并发进程
+            taskTimeoutMillis: 20000, // 20秒超时 (在系统繁忙时提供更多余地)
+            maxProcs: 4               // 允许4个并发进程
         })
     }
     return exiftool
@@ -74,9 +74,9 @@ export async function extractExifData(filePath: string): Promise<ExifData | null
     try {
         const tool = getExifTool()
 
-        // 强制的外部超时控制 (35秒)
+        // 强制的外部超时控制 (22秒)
         const exifPromise = tool.read(filePath)
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('HARD_TIMEOUT')), 35000))
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('HARD_TIMEOUT')), 22000))
 
         const tags = await Promise.race([exifPromise, timeoutPromise]) as any
 
@@ -149,11 +149,8 @@ export async function extractExifData(filePath: string): Promise<ExifData | null
 
         // 仅在关键错误时重启
         if (String(error).includes('HARD_TIMEOUT')) {
-            console.warn('[EXIF] 检测到硬超时(35s)，强制销毁 ExifTool 实例')
-            if (exiftool) {
-                exiftool.end().catch(() => { })
-                exiftool = null
-            }
+            console.warn(`[EXIF] 检测到硬超时(22s): ${filePath}`)
+            // 不再因为单个超时就重启实例
         }
         return null
     }
@@ -170,7 +167,7 @@ export async function processExifBatch(): Promise<number> {
 
     isProcessing = true
     try {
-        const pendingItems = getPendingExifItems(30)
+        const pendingItems = getPendingExifItems(40) // 批次大小调整为 40
 
         if (pendingItems.length === 0) {
             isProcessing = false
@@ -181,43 +178,25 @@ export async function processExifBatch(): Promise<number> {
         console.log(`[EXIF] 开始批次处理: 待处理 ${stats.pending} / 总数 ${stats.total}`)
 
         let processed = 0
+        console.log(`[EXIF] 正在并行处理 ${pendingItems.length} 个项目...`)
 
-        for (const item of pendingItems) {
+        await Promise.all(pendingItems.map(async (item) => {
             try {
-                // console.log(`[EXIF Step] Processing: ${item.path}`)
-
-                // 直接调用 extractedExifData，它内部现在有了超时保护
+                // console.log(`[EXIF] 正在处理: ${path.basename(item.path)}`)
                 const exifData = await extractExifData(item.path)
-
-                // 无论是 null (失败) 还是 有数据，都标记已处理，避免死循环
-                // 如果是 null，exif_data 字段会通过 updateExifData 更新为 {} 或 null，
-                // 但为了避免下次 getPendingExifItems 再次选出它，我们需要确保数据库状态改变
-                // getPendingExifItems 选取的条件是: exif_data IS NULL OR (exif_data = '{}' AND latitude IS NULL)
-                // 所以成功的会写入内容，失败的写入 {}。
-                // 如果一直失败，我们需要一个机制防止它无限被选出... 
-                // fix: updateExifData 会更新 updated_at，我们可以结合 updated_at 来过滤最近尝试过的？
-                // 目前逻辑是：只要调了 updateExifData，就会更新 updated_at。
-                // 但 getPendingExifItems 是按 created_at 排序的。
-                // 建议：如果解析失败，写入一个特殊标记或者就是 {}。
 
                 if (exifData) {
                     updateExifData(item.id, exifData)
                 } else {
                     // 标记为失败，避免无限重试
-                    // 数据库查询条件是 exif_data = '{}'，所以只有存入非空内容才能避免被再次选中
                     updateExifData(item.id, { _error: 'processing_failed' })
                 }
 
                 processed++
-
-                if (processed % 10 === 0) console.log(`[EXIF] 批次进度: ${processed}/${pendingItems.length}`)
-
             } catch (error) {
-                console.error(`[EXIF] 处理循环异常: ${item.path} - ${error}`)
-                // 数据库层面记录错误? 目前 updateExifData 没地方记 error string
-                // 暂时仅 log
+                console.error(`[EXIF] 处理异常: ${item.path} - ${error}`)
             }
-        }
+        }))
 
         console.log(`EXIF 批量处理完成: 成功处理 ${processed} 个文件`)
         return processed

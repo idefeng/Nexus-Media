@@ -338,9 +338,9 @@ export function updateThumbnailPath(id: number, thumbnailPath: string): void {
 /**
  * 获取待处理缩略图的任务（没有缩略图的项）
  */
-export function getPendingThumbnailItems(): { id: number; path: string; type: 'image' | 'video' }[] {
-    return db.prepare('SELECT id, path, type FROM media_items WHERE thumbnail_path IS NULL')
-        .all() as { id: number; path: string; type: 'image' | 'video' }[]
+export function getPendingThumbnailItems(limit: number = 500): { id: number; path: string; type: 'image' | 'video' }[] {
+    return db.prepare('SELECT id, path, type FROM media_items WHERE thumbnail_path IS NULL LIMIT ?')
+        .all(limit) as { id: number; path: string; type: 'image' | 'video' }[]
 }
 
 /**

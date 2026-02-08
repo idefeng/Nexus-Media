@@ -158,11 +158,12 @@ export async function startThumbnailBatch() {
     if (isProcessing) return
     isProcessing = true
 
-    console.log('开始后台缩略图生成提取任务...')
-
     try {
-        const pendingItems = getPendingThumbnailItems()
-        console.log(`发现 ${pendingItems.length} 个待处理项`)
+        // 限制每批次生成的数量，避免长时间阻塞调度器
+        const pendingItems = getPendingThumbnailItems(50)
+        if (pendingItems.length === 0) return
+
+        console.log(`[Thumbnail] 启动批次提取: ${pendingItems.length} 个项目`)
 
         // 简单的并发控制
         for (let i = 0; i < pendingItems.length; i += CONCURRENCY_LIMIT) {
