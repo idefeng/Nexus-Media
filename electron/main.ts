@@ -101,13 +101,17 @@ app.whenReady().then(() => {
             const { configStore } = await import('./config-store')
             const config = configStore.store
 
-            // 后台任务并行启动（各自内部有 isProcessing 锁）
-            startThumbnailBatch() // 缩略图始终需要生成
-            processMd5Batch()     // MD5 始终需要计算
+            console.log('[Scheduler] Heartbeat tick...')
+
+            // 后台任务并行启动
+            startThumbnailBatch()
+            processMd5Batch()
 
             // EXIF 只有在启用且自动提取时才运行
             if (config.exif?.enabled && config.exif?.autoExtract) {
                 processExifBatch()
+            } else if (!config.exif?.autoExtract) {
+                console.log('[Scheduler] EXIF 自动提取已关闭，跳过。')
             }
 
             // AI 只有在启用且自动分析时才运行

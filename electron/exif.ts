@@ -7,6 +7,7 @@ import { updateExifData, getPendingExifItems, getExifStats } from './database'
 
 // 全局 ExifTool 实例
 let exiftool: ExifTool | null = null
+let isProcessing = false
 
 function getExifTool() {
     if (!exiftool) {
@@ -162,10 +163,17 @@ export async function extractExifData(filePath: string): Promise<ExifData | null
  * 后台批量处理 EXIF 数据
  */
 export async function processExifBatch(): Promise<number> {
+    if (isProcessing) {
+        console.log('[EXIF] 任务正在运行中，跳过当前批次')
+        return 0
+    }
+
+    isProcessing = true
     try {
         const pendingItems = getPendingExifItems(30)
 
         if (pendingItems.length === 0) {
+            isProcessing = false
             return 0
         }
 
@@ -216,6 +224,8 @@ export async function processExifBatch(): Promise<number> {
     } catch (error) {
         console.error('EXIF 批量处理出错:', error)
         return 0
+    } finally {
+        isProcessing = false
     }
 }
 
