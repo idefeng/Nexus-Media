@@ -40,7 +40,7 @@
     "dashboard": {
         "welcome_back": "欢迎回来",
         "your_vault_ready": "您的个人媒体库已就绪。",
-        "new_items_this_week": "本周已新增 {{count}} 个项目。",
+        "new_items_this_week": "本周已新增 {{count}} 个媒体文件。",
         "browse_library": "浏览图库",
         "view_recent": "查看最新",
         "total_assets": "媒体总数",
@@ -51,7 +51,7 @@
         "view_all": "查看全部",
         "ai_insights": "AI 洞察",
         "ai_insights_desc": "通过智能标签和重复检测优化您的媒体库。",
-        "no_recent_items": "没有最近上传的项目"
+        "no_recent_items": "没有最近上传的媒体文件"
     },
     "settings": {
         "title": "应用设置",

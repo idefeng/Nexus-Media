@@ -33,6 +33,11 @@ export interface MediaItemRecord {
     focus_score: number | null
     latitude: number | null
     longitude: number | null
+    country: string | null
+    province: string | null
+    city: string | null
+    district: string | null
+    location_name: string | null
 }
 
 export interface PersonRecord {
@@ -102,7 +107,12 @@ export async function initDatabase(): Promise<void> {
             md5_hash TEXT DEFAULT NULL,
             focus_score REAL DEFAULT NULL,
             latitude REAL DEFAULT NULL,
-            longitude REAL DEFAULT NULL
+            longitude REAL DEFAULT NULL,
+            country TEXT DEFAULT NULL,
+            province TEXT DEFAULT NULL,
+            city TEXT DEFAULT NULL,
+            district TEXT DEFAULT NULL,
+            location_name TEXT DEFAULT NULL
         );
 
         CREATE INDEX IF NOT EXISTS idx_media_type ON media_items(type);
@@ -180,6 +190,15 @@ export async function initDatabase(): Promise<void> {
             db.exec('ALTER TABLE media_items ADD COLUMN longitude REAL DEFAULT NULL')
             db.exec('CREATE INDEX IF NOT EXISTS idx_media_lng ON media_items(longitude)')
             console.log('数据库迁移：添加 longitude 列')
+        }
+
+        if (!columnNames.includes('country')) {
+            db.exec('ALTER TABLE media_items ADD COLUMN country TEXT DEFAULT NULL')
+            db.exec('ALTER TABLE media_items ADD COLUMN province TEXT DEFAULT NULL')
+            db.exec('ALTER TABLE media_items ADD COLUMN city TEXT DEFAULT NULL')
+            db.exec('ALTER TABLE media_items ADD COLUMN district TEXT DEFAULT NULL')
+            db.exec('ALTER TABLE media_items ADD COLUMN location_name TEXT DEFAULT NULL')
+            console.log('数据库迁移：添加地理位置详细信息列')
         }
 
         // 补全已有数据的经纬度
@@ -602,8 +621,47 @@ export function updateExifData(id: number, exifData: any): void {
     const latitude = exifData?.latitude || null
     const longitude = exifData?.longitude || null
 
-    db.prepare('UPDATE media_items SET exif_data = ?, latitude = ?, longitude = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-        .run(exifJson, latitude, longitude, id)
+    // Detailed location info from Python/RG
+    const country = exifData?.country || exifData?.countryCode || null
+    const province = exifData?.province || null
+    const city = exifData?.city || null
+    const district = exifData?.district || null
+    const locationName = exifData?.locationName || null
+
+    db.prepare(`
+        UPDATE media_items 
+        SET exif_data = ?, 
+            latitude = ?, 
+            longitude = ?, 
+            country = ?, 
+            province = ?, 
+            city = ?, 
+            district = ?, 
+            location_name = ?,
+            updated_at = CURRENT_TIMESTAMP 
+        WHERE id = ?
+    `).run(exifJson, latitude, longitude, country, province, city, district, locationName, id)
+}
+
+/**
+ * 获取地理位置统计信息
+ */
+export function getGeoStats() {
+    const countries = db.prepare("SELECT COUNT(DISTINCT country) as count FROM media_items WHERE country IS NOT NULL").get() as any
+    const provinces = db.prepare("SELECT COUNT(DISTINCT province) as count FROM media_items WHERE province IS NOT NULL").get() as any
+
+    // Locations (could be unique cities or unique coordinates)
+    // User asked for "地点 (不同的地方)". Maybe unique cities/cities+districts?
+    // Or just unique coordinates (approximate).
+    // Let's use unique city + province for "distinct places" or just count of items with GPS?
+    // Usually "location" in this context refers to distinct points or names.
+    const locations = db.prepare("SELECT COUNT(DISTINCT city || '_' || province) as count FROM media_items WHERE city IS NOT NULL OR province IS NOT NULL").get() as any
+
+    return {
+        countries: countries.count,
+        provinces: provinces.count,
+        locations: locations.count
+    }
 }
 
 /**

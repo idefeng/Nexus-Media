@@ -31,6 +31,7 @@ function App() {
     const [dbMediaCount, setDbMediaCount] = useState(0)
     const [aiQueueCount, setAiQueueCount] = useState(0)
     const [aiStatus, setAiStatus] = useState({ running: false, ready: false, pendingCount: 0 })
+    const [geoStats, setGeoStats] = useState({ countries: 0, provinces: 0, locations: 0 })
 
     // 预览 Modal 状态
     const [previewItem, setPreviewItem] = useState<MediaItem | null>(null)
@@ -55,7 +56,7 @@ function App() {
             console.log('从数据库加载结果:', result)
             if (result.success && result.items) {
                 // Use the fixed mapping function
-                const items: MediaItem[] = (result.items as MediaItemRecord[]).map(recordToMediaItem)
+                const items: MediaItem[] = (result.items as unknown as MediaItemRecord[]).map(recordToMediaItem)
                 console.log('转换后的媒体项:', items)
                 setMediaItems(items)
                 setDbMediaCount(items.length)
@@ -93,12 +94,26 @@ function App() {
         }
     }, [])
 
+    const loadGeoStats = useCallback(async () => {
+        if (!window.electronAPI || !window.electronAPI.media.getGeoStats) return
+
+        try {
+            const result = await window.electronAPI.media.getGeoStats()
+            if (result.success) {
+                setGeoStats(result.stats)
+            }
+        } catch (error) {
+            console.error('获取地理统计失败:', error)
+        }
+    }, [])
+
     // 初始化时加载数据
     useEffect(() => {
         loadMediaFromDB()
         loadMediaStats()
+        loadGeoStats()
         loadAllTags()
-    }, [loadMediaFromDB, loadMediaStats, loadAllTags])
+    }, [loadMediaFromDB, loadMediaStats, loadGeoStats, loadAllTags])
 
     // 监听扫描进度
     useEffect(() => {
@@ -563,6 +578,7 @@ function App() {
                         {currentView === 'dashboard' ? (
                             <Dashboard
                                 mediaCount={mediaCount}
+                                geoStats={geoStats}
                                 recentItems={mediaItems
                                     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                                     .slice(0, 10)

@@ -3,6 +3,7 @@ import cv2
 from PIL import Image, ExifTags
 from datetime import datetime
 from typing import Dict, Any, Optional
+import reverse_geocoder as rg
 
 class MetadataEngine:
     def __init__(self):
@@ -67,8 +68,23 @@ class MetadataEngine:
                     # GPS
                     elif tag_name == 'GPSInfo':
                         lat, lon, alt = self._parse_gps(value)
-                        if lat is not None: data['latitude'] = lat
-                        if lon is not None: data['longitude'] = lon
+                        if lat is not None and lon is not None:
+                            data['latitude'] = lat
+                            data['longitude'] = lon
+                            
+                            # Perform reverse geocoding
+                            try:
+                                # rg.search uses [(lat, lon)]
+                                results = rg.search((lat, lon))
+                                if results:
+                                    res = results[0]
+                                    data['city'] = res.get('name')
+                                    data['province'] = res.get('admin1')
+                                    data['countryCode'] = res.get('cc')
+                                    # Add a simple mapping for names or leave as is
+                            except Exception as re_err:
+                                print(f"Reverse geocode error: {re_err}")
+                                
                         if alt is not None: data['altitude'] = alt
 
         except Exception as e:

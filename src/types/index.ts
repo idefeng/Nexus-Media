@@ -67,6 +67,11 @@ export interface MediaItem {
     exifData?: ExifData
     latitude?: number | null
     longitude?: number | null
+    country?: string | null
+    province?: string | null
+    city?: string | null
+    district?: string | null
+    locationName?: string | null
 }
 
 /**
@@ -94,6 +99,11 @@ export interface MediaItemRecord {
     duration: number | null
     latitude: number | null
     longitude: number | null
+    country: string | null
+    province: string | null
+    city: string | null
+    district: string | null
+    location_name: string | null
 }
 
 /**
@@ -148,7 +158,12 @@ export function recordToMediaItem(record: MediaItemRecord): MediaItem {
         aiTags: JSON.parse(record.ai_tags || '[]'),
         exifData,
         latitude: record.latitude,
-        longitude: record.longitude
+        longitude: record.longitude,
+        country: record.country,
+        province: record.province,
+        city: record.city,
+        district: record.district,
+        locationName: record.location_name
     }
 }
 

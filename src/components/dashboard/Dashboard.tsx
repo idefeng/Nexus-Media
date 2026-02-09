@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
-import { Image, Video, Clock, Star, Grid } from 'lucide-react'
+import { Image, Video, Clock, Star, Grid, MapPin, Globe, Compass, ChevronRight } from 'lucide-react'
 import { MediaItem, ViewType } from '../../types'
 
 interface DashboardProps {
@@ -11,12 +11,17 @@ interface DashboardProps {
         images: number;
         videos: number;
     }
+    geoStats?: {
+        countries: number;
+        provinces: number;
+        locations: number;
+    }
     recentItems: MediaItem[]
     onNavigate: (view: ViewType) => void
     onItemClick: (item: MediaItem) => void
 }
 
-export function Dashboard({ mediaCount, recentItems, onNavigate, onItemClick }: DashboardProps) {
+export function Dashboard({ mediaCount, geoStats, recentItems, onNavigate, onItemClick }: DashboardProps) {
     const { t } = useTranslation()
 
     // Animation variants
@@ -113,8 +118,9 @@ export function Dashboard({ mediaCount, recentItems, onNavigate, onItemClick }: 
                                 <Clock className="w-4 h-4 text-neon-electric" />
                                 <h3 className="font-bold text-lg text-nexus-text-primary">{t('dashboard.recent_uploads')}</h3>
                             </div>
-                            <button onClick={() => onNavigate('recent')} className="text-xs text-nexus-text-muted hover:text-nexus-text-primary transition-colors">
+                            <button onClick={() => onNavigate('recent')} className="text-xs text-nexus-text-muted hover:text-nexus-text-primary transition-colors flex items-center gap-1">
                                 {t('dashboard.view_all')}
+                                <ChevronRight className="w-3 h-3" />
                             </button>
                         </div>
                         <div className="grid grid-cols-2 gap-3 flex-1 min-h-0">
@@ -198,6 +204,73 @@ export function Dashboard({ mediaCount, recentItems, onNavigate, onItemClick }: 
                         </button>
                     </motion.div>
                 </motion.div>
+
+                {/* Footprints Section */}
+                {geoStats && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.6, duration: 0.6 }}
+                        className="mt-12"
+                    >
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 bg-neon-cyan/10 rounded-xl">
+                                <Compass className="w-6 h-6 text-neon-cyan" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-nexus-text-primary">我的足迹</h3>
+                                <p className="text-sm text-nexus-text-muted">走过的世界，看过的风景</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <motion.div
+                                whileHover={{ y: -5 }}
+                                className="bg-white/50 backdrop-blur-md border border-white/20 p-6 rounded-3xl flex items-center gap-4 transition-all hover:bg-white/80 hover:shadow-xl group shadow-sm"
+                            >
+                                <div className="p-4 bg-neon-cyan/10 rounded-2xl group-hover:bg-neon-cyan group-hover:text-white transition-colors">
+                                    <Globe className="w-8 h-8" />
+                                </div>
+                                <div>
+                                    <div className="text-3xl font-black font-display text-nexus-text-primary tabular-nums">
+                                        {geoStats.countries}
+                                    </div>
+                                    <div className="text-sm font-medium text-nexus-text-muted mt-1">追逐的国家/地区</div>
+                                </div>
+                            </motion.div>
+
+                            <motion.div
+                                whileHover={{ y: -5 }}
+                                className="bg-white/50 backdrop-blur-md border border-white/20 p-6 rounded-3xl flex items-center gap-4 transition-all hover:bg-white/80 hover:shadow-xl group shadow-sm"
+                            >
+                                <div className="p-4 bg-neon-purple/10 rounded-2xl group-hover:bg-neon-purple group-hover:text-white transition-colors">
+                                    <Compass className="w-8 h-8 text-neon-purple group-hover:text-white" />
+                                </div>
+                                <div>
+                                    <div className="text-3xl font-black font-display text-nexus-text-primary tabular-nums">
+                                        {geoStats.provinces}
+                                    </div>
+                                    <div className="text-sm font-medium text-nexus-text-muted mt-1">跨越的省份/州</div>
+                                </div>
+                            </motion.div>
+
+                            <motion.div
+                                whileHover={{ y: -5 }}
+                                className="bg-white/50 backdrop-blur-md border border-white/20 p-6 rounded-3xl flex items-center gap-4 transition-all hover:bg-white/80 hover:shadow-xl group shadow-sm"
+                            >
+                                <div className="p-4 bg-neon-pink/10 rounded-2xl group-hover:bg-neon-pink group-hover:text-white transition-colors">
+                                    <MapPin className="w-8 h-8 text-neon-pink group-hover:text-white" />
+                                </div>
+                                <div>
+                                    <div className="text-3xl font-black font-display text-nexus-text-primary tabular-nums">
+                                        {geoStats.locations}
+                                    </div>
+                                    <div className="text-sm font-medium text-nexus-text-muted mt-1">留影的不同地点</div>
+                                </div>
+                            </motion.div>
+                        </div>
+                    </motion.div>
+                )}
             </div>
         </div>
     )

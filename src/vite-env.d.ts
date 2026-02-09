@@ -25,6 +25,11 @@ interface MediaItemRecord {
     focus_score: number | null
     latitude: number | null
     longitude: number | null
+    country: string | null
+    province: string | null
+    city: string | null
+    district: string | null
+    location_name: string | null
 }
 
 // 扫描进度信息
@@ -80,6 +85,7 @@ interface Window {
             updateNotes: (id: number, notes: string) => Promise<{ success: boolean }>
             getAllTags: () => Promise<{ success: boolean; tags: string[] }>
             getItem: (id: number) => Promise<{ success: boolean; item: MediaItemRecord | null }>
+            getGeoStats: () => Promise<{ success: boolean; stats: { countries: number; provinces: number; locations: number } }>
         }
         ai: {
             getStatus: () => Promise<{ running: boolean; ready: boolean; pendingCount: number }>

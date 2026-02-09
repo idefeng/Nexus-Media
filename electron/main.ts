@@ -11,7 +11,7 @@ import {
     updateAiTags, getPendingAiItems, deleteMediaItem, deleteMediaItems, batchAddTags,
     updateMd5Hash, updateFocusScore, getCleanupStats, getExactDuplicates, getLowQualityItems,
     getAllPersons, updatePersonName, getSocialGraphData, getSharedMedia, clearDatabase,
-    getMediaWithLocation, searchMediaByBounds
+    getMediaWithLocation, searchMediaByBounds, getGeoStats
 } from './database'
 import { scanFolders, type ScannedFile, type ScanProgress } from './scanner'
 import { initThumbnailsDir, startThumbnailBatch } from './thumbnails'
@@ -268,6 +268,15 @@ ipcMain.handle('media:getStats', async () => {
         const stats = getMediaStats()
         const count = getMediaCount()
         return { success: true, stats, count }
+    } catch (error: any) {
+        return { success: false, message: error.message }
+    }
+})
+
+ipcMain.handle('media:getGeoStats', async () => {
+    try {
+        const stats = getGeoStats()
+        return { success: true, stats }
     } catch (error: any) {
         return { success: false, message: error.message }
     }

@@ -54,6 +54,11 @@ interface MediaItemRecord {
     focus_score: number | null
     latitude: number | null
     longitude: number | null
+    country: string | null
+    province: string | null
+    city: string | null
+    district: string | null
+    location_name: string | null
 }
 
 // 暴露 API 到渲染进程
@@ -93,7 +98,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
         updateTags: (id: number, tags: string[]) => ipcRenderer.invoke('media:updateTags', id, tags) as Promise<{ success: boolean }>,
         updateNotes: (id: number, notes: string) => ipcRenderer.invoke('media:updateNotes', id, notes) as Promise<{ success: boolean }>,
         getAllTags: () => ipcRenderer.invoke('media:getAllTags') as Promise<{ success: boolean; tags: string[] }>,
-        getItem: (id: number) => ipcRenderer.invoke('media:getItem', id) as Promise<{ success: boolean; item: MediaItemRecord | null }>
+        getItem: (id: number) => ipcRenderer.invoke('media:getItem', id) as Promise<{ success: boolean; item: MediaItemRecord | null }>,
+        getGeoStats: () => ipcRenderer.invoke('media:getGeoStats') as Promise<{ success: boolean; stats: { countries: number; provinces: number; locations: number } }>
     },
 
     // AI 功能
@@ -214,6 +220,7 @@ declare global {
                 updateNotes: (id: number, notes: string) => Promise<{ success: boolean }>
                 getAllTags: () => Promise<{ success: boolean; tags: string[] }>
                 getItem: (id: number) => Promise<{ success: boolean; item: MediaItemRecord | null }>
+                getGeoStats: () => Promise<{ success: boolean; stats: { countries: number; provinces: number; locations: number } }>
             }
             ai: {
                 getStatus: () => Promise<{ running: boolean; ready: boolean; pendingCount: number }>

@@ -18,6 +18,7 @@ Pillow
 numpy
 scikit-learn
 opencv-python-headless
+reverse_geocoder
 
 # Face Recognition
 insightface
