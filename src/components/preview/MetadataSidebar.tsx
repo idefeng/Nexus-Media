@@ -8,7 +8,7 @@ import ReactMarkdown from 'react-markdown'
 import {
     FileText, Calendar, HardDrive, ImageIcon,
     FolderOpen, Edit3, Eye, Save, Sparkles,
-    Camera, MapPin, Aperture, Timer, Gauge, Share2
+    MapPin, Share2
 } from 'lucide-react'
 import { TagInput } from './TagInput'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
@@ -98,7 +98,6 @@ export function MetadataSidebar({ item, allTags, onTagsChange, onNotesChange, on
     }, [hasChanges, notes, onNotesChange])
 
     const exif = item.exifData
-    const hasExif = exif && Object.keys(exif).length > 0
     const hasGPS = exif?.latitude !== undefined && exif?.longitude !== undefined
 
     return (
@@ -225,151 +224,52 @@ export function MetadataSidebar({ item, allTags, onTagsChange, onNotesChange, on
                     )}
                 </div>
 
-                {/* EXIF / 拍摄信息 */}
-                {hasExif && (
+                {/* EXIF / 拍摄信息 (仅保留 GPS) */}
+                {hasGPS && (
                     <div className="p-4 border-b border-nexus-border">
                         <h4 className="text-nexus-text-primary text-sm font-medium mb-3 flex items-center gap-2">
-                            <Camera className="w-4 h-4 text-neon-electric" />
-                            拍摄信息
+                            <MapPin className="w-4 h-4 text-neon-green" />
+                            地理位置
                         </h4>
 
                         <div className="space-y-3">
-                            {/* 相机设备 */}
-                            {(exif.make || exif.model || exif.lensModel || exif.serialNumber) && (
+                            <div className="flex flex-col gap-3">
                                 <div className="flex items-start gap-3">
-                                    <Camera className="w-4 h-4 text-nexus-text-muted mt-0.5" />
-                                    <div>
-                                        <p className="text-nexus-text-muted text-xs">相机设备</p>
-                                        <p className="text-nexus-text-primary text-sm">
-                                            {[exif.make, exif.model].filter(Boolean).join(' ')}
+                                    <MapPin className="w-4 h-4 text-nexus-text-muted mt-0.5" />
+                                    <div className="flex-1">
+                                        <p className="text-nexus-text-primary text-sm font-mono leading-relaxed">
+                                            {formatGPS(exif!.latitude, exif!.longitude)}
                                         </p>
-                                        {exif.lensModel && (
-                                            <p className="text-nexus-text-secondary text-xs mt-0.5" title="镜头">
-                                                📷 {exif.lensModel}
-                                            </p>
-                                        )}
-                                        {exif.serialNumber && (
-                                            <p className="text-nexus-text-muted text-[10px] mt-0.5 font-mono">
-                                                SN: {exif.serialNumber}
+                                        {exif!.altitude !== undefined && (
+                                            <p className="text-nexus-text-muted text-xs mt-0.5">
+                                                海拔: {exif!.altitude.toFixed(1)}m
                                             </p>
                                         )}
                                     </div>
                                 </div>
-                            )}
 
-                            {/* 拍摄参数 */}
-                            {(exif.focalLength || exif.aperture || exif.exposureTime || exif.iso || exif.exposureBias) && (
-                                <div className="flex items-start gap-3">
-                                    <Aperture className="w-4 h-4 text-nexus-text-muted mt-0.5" />
-                                    <div>
-                                        <p className="text-nexus-text-muted text-xs">拍摄参数</p>
-                                        <div className="flex flex-wrap gap-2 mt-1">
-                                            {exif.focalLength && (
-                                                <span className="px-2 py-0.5 text-xs bg-nexus-bg-tertiary rounded text-nexus-text-secondary">
-                                                    {exif.focalLength}mm
-                                                </span>
-                                            )}
-                                            {exif.aperture && (
-                                                <span className="px-2 py-0.5 text-xs bg-nexus-bg-tertiary rounded text-nexus-text-secondary">
-                                                    f/{exif.aperture}
-                                                </span>
-                                            )}
-                                            {exif.exposureTime && (
-                                                <span className="px-2 py-0.5 text-xs bg-nexus-bg-tertiary rounded text-nexus-text-secondary">
-                                                    {exif.exposureTime}s
-                                                </span>
-                                            )}
-                                            {exif.iso && (
-                                                <span className="px-2 py-0.5 text-xs bg-nexus-bg-tertiary rounded text-nexus-text-secondary">
-                                                    ISO {exif.iso}
-                                                </span>
-                                            )}
-                                            {exif.exposureBias && exif.exposureBias !== 0 && (
-                                                <span className="px-2 py-0.5 text-xs bg-nexus-bg-tertiary rounded text-nexus-text-secondary">
-                                                    {exif.exposureBias > 0 ? '+' : ''}{exif.exposureBias} EV
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        {/* 进阶参数 */}
-                                        {(exif.meteringMode || exif.exposureProgram || exif.whiteBalance) && (
-                                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-[10px] text-nexus-text-muted">
-                                                {exif.exposureProgram && <span>{exif.exposureProgram}</span>}
-                                                {exif.meteringMode && <span>{exif.meteringMode}</span>}
-                                                {exif.whiteBalance && <span>{exif.whiteBalance}</span>}
-                                            </div>
-                                        )}
-                                    </div>
+                                {/* 小型交互式地图 */}
+                                <div className="w-full h-32 rounded-xl overflow-hidden border border-nexus-border relative z-0">
+                                    <MapContainer
+                                        center={[exif!.latitude!, exif!.longitude!]}
+                                        zoom={13}
+                                        className="w-full h-full"
+                                        zoomControl={false}
+                                        attributionControl={false}
+                                    >
+                                        <TileLayer
+                                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                        />
+                                        <Marker position={[exif!.latitude!, exif!.longitude!]} />
+                                    </MapContainer>
+                                    <button
+                                        onClick={() => openMapLink(exif!.latitude!, exif!.longitude!)}
+                                        className="absolute bottom-1 right-1 z-[400] px-2 py-1 bg-white/90 backdrop-blur-sm shadow-sm rounded-lg text-[10px] font-bold text-nexus-text-primary hover:bg-white transition-colors border border-gray-100"
+                                    >
+                                        查看大图
+                                    </button>
                                 </div>
-                            )}
-
-                            {/* 拍摄时间 */}
-                            {exif.dateTimeOriginal && (
-                                <div className="flex items-start gap-3">
-                                    <Timer className="w-4 h-4 text-nexus-text-muted mt-0.5" />
-                                    <div>
-                                        <p className="text-nexus-text-muted text-xs">拍摄时间</p>
-                                        <p className="text-nexus-text-primary text-sm">
-                                            {formatDate(exif.dateTimeOriginal)}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* GPS 位置 */}
-                            {hasGPS && (
-                                <div className="flex flex-col gap-3">
-                                    <div className="flex items-start gap-3">
-                                        <MapPin className="w-4 h-4 text-neon-green mt-0.5" />
-                                        <div className="flex-1">
-                                            <p className="text-nexus-text-muted text-xs">GPS 位置</p>
-                                            <p className="text-nexus-text-primary text-sm font-mono leading-relaxed">
-                                                {formatGPS(exif!.latitude, exif!.longitude)}
-                                            </p>
-                                            {exif!.altitude !== undefined && (
-                                                <p className="text-nexus-text-muted text-xs mt-0.5">
-                                                    海拔: {exif!.altitude.toFixed(1)}m
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* 小型交互式地图 */}
-                                    <div className="w-full h-32 rounded-xl overflow-hidden border border-nexus-border relative z-0">
-                                        <MapContainer
-                                            center={[exif!.latitude!, exif!.longitude!]}
-                                            zoom={13}
-                                            className="w-full h-full"
-                                            zoomControl={false}
-                                            attributionControl={false}
-                                        >
-                                            <TileLayer
-                                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                            />
-                                            <Marker position={[exif!.latitude!, exif!.longitude!]} />
-                                        </MapContainer>
-                                        <button
-                                            onClick={() => openMapLink(exif!.latitude!, exif!.longitude!)}
-                                            className="absolute bottom-1 right-1 z-[400] px-2 py-1 bg-white/90 backdrop-blur-sm shadow-sm rounded-lg text-[10px] font-bold text-nexus-text-primary hover:bg-white transition-colors border border-gray-100"
-                                        >
-                                            查看大图
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* 图像尺寸 (从 EXIF) */}
-                            {(exif.width && exif.height) && (
-                                <div className="flex items-start gap-3">
-                                    <Gauge className="w-4 h-4 text-nexus-text-muted mt-0.5" />
-                                    <div>
-                                        <p className="text-nexus-text-muted text-xs">原始尺寸</p>
-                                        <p className="text-nexus-text-primary text-sm">
-                                            {exif.width} × {exif.height} 像素
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
+                            </div>
                         </div>
                     </div>
                 )}

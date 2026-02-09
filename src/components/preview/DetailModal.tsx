@@ -2,12 +2,13 @@
  * 详情预览 Modal
  * 全屏浮层，展示媒体文件预览和元数据编辑
  */
-import { useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, ChevronLeft, ChevronRight, Heart, Trash2 } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Heart, Trash2, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
 import { ImageViewer } from './ImageViewer'
 import { VideoPlayer } from './VideoPlayer'
 import { MetadataSidebar } from './MetadataSidebar'
+import { PhotoInfoOverlay } from './PhotoInfoOverlay'
 import type { MediaItem } from '../../types'
 
 interface DetailModalProps {
@@ -39,6 +40,9 @@ export function DetailModal({
     onDeleteItem,
     onShare
 }: DetailModalProps) {
+    // Zoom state
+    const [zoomScale, setZoomScale] = useState(1)
+
     // 当前索引
     const currentIndex = useMemo(() => {
         if (!item) return -1
@@ -49,40 +53,34 @@ export function DetailModal({
     const hasPrev = currentIndex > 0
     const hasNext = currentIndex < items.length - 1
 
+    // Reset zoom on item change
+    useEffect(() => {
+        setZoomScale(1)
+    }, [item?.id])
+
+    const handleZoomIn = () => setZoomScale(s => Math.min(5, s + 0.25))
+    const handleZoomOut = () => setZoomScale(s => Math.max(0.5, s - 0.25))
+    const handleResetZoom = () => setZoomScale(1)
+
     // 导航到上一个
     const goToPrev = useCallback(() => {
-        if (hasPrev) {
-            onNavigate(items[currentIndex - 1])
-        }
+        if (hasPrev) onNavigate(items[currentIndex - 1])
     }, [hasPrev, items, currentIndex, onNavigate])
 
     // 导航到下一个
     const goToNext = useCallback(() => {
-        if (hasNext) {
-            onNavigate(items[currentIndex + 1])
-        }
+        if (hasNext) onNavigate(items[currentIndex + 1])
     }, [hasNext, items, currentIndex, onNavigate])
 
     // 处理删除项目
     const handleDelete = useCallback(async () => {
         if (!item || !onDeleteItem) return;
-
-        // 简单的确认对话框
         if (!confirm('确定要从图库中删除此文件吗？此操作不可撤销。')) return;
-
         try {
             const idToDelete = item.id;
-
-            // 如果有下一个，先跳转到下一个，否则尝试跳转到上一个
-            if (hasNext) {
-                goToNext();
-            } else if (hasPrev) {
-                goToPrev();
-            } else {
-                onClose();
-            }
-
-            // 执行实际删除逻辑
+            if (hasNext) goToNext();
+            else if (hasPrev) goToPrev();
+            else onClose();
             await onDeleteItem(idToDelete);
         } catch (error) {
             console.error('删除操作失败:', error);
@@ -92,40 +90,28 @@ export function DetailModal({
     // 键盘快捷键
     useEffect(() => {
         if (!isOpen) return
-
         const handleKeyDown = (e: KeyboardEvent) => {
             switch (e.key) {
-                case 'Escape':
-                    onClose()
-                    break
-                case 'ArrowLeft':
-                    goToPrev()
-                    break
-                case 'ArrowRight':
-                    goToNext()
-                    break
+                case 'Escape': onClose(); break
+                case 'ArrowLeft': goToPrev(); break
+                case 'ArrowRight': goToNext(); break
             }
         }
-
         window.addEventListener('keydown', handleKeyDown)
         return () => window.removeEventListener('keydown', handleKeyDown)
     }, [isOpen, onClose, goToPrev, goToNext])
 
     // 禁止背景滚动
     useEffect(() => {
-        if (isOpen) {
-            document.body.style.overflow = 'hidden'
-        } else {
-            document.body.style.overflow = ''
-        }
-        return () => {
-            document.body.style.overflow = ''
-        }
+        document.body.style.overflow = isOpen ? 'hidden' : ''
+        return () => { document.body.style.overflow = '' }
     }, [isOpen])
 
     // 获取媒体源 URL
     const getMediaSrc = useCallback((mediaItem: MediaItem) => {
-        return `nexus-media://local/${mediaItem.path}`
+        // Normalize backslashes to forward slashes for consistent URL handling
+        const normalizedPath = mediaItem.path.replace(/\\/g, '/')
+        return `nexus-media://local/${normalizedPath}`
     }, [])
 
     if (!item) return null
@@ -140,49 +126,39 @@ export function DetailModal({
                     transition={{ duration: 0.2 }}
                     className="fixed inset-0 z-50 flex bg-black/95"
                 >
-                    {/* 左侧预览区域容器 */}
+                    {/* Left Preview Area */}
                     <div className="flex-1 relative flex flex-col h-full overflow-hidden">
-                        {/* 顶部信息栏 */}
-                        <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4">
-                            {/* 计数器 */}
-                            <div className="px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm">
+                        {/* Top Bar */}
+                        <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4 pointer-events-none">
+                            <div className="px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm pointer-events-auto">
                                 <span className="text-white text-sm">
                                     {currentIndex + 1} / {items.length}
                                 </span>
                             </div>
                         </div>
 
-                        {/* 左侧导航按钮 */}
+                        {/* Nav Buttons */}
                         {hasPrev && (
                             <button
                                 onClick={goToPrev}
                                 className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                                title="上一个 (←)"
                             >
                                 <ChevronLeft className="w-8 h-8 text-white" />
                             </button>
                         )}
-
-                        {/* 右侧导航按钮 */}
                         {hasNext && (
                             <button
                                 onClick={goToNext}
                                 className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                                title="下一个 (→)"
                             >
                                 <ChevronRight className="w-8 h-8 text-white" />
                             </button>
                         )}
 
-                        {/* 主内容区域 */}
+                        {/* Main Content */}
                         <div
                             className="flex-1 flex items-center justify-center p-8 pb-20 w-full h-full"
-                            onClick={(e) => {
-                                // 点击背景关闭，但忽略内容区域的点击
-                                if (e.target === e.currentTarget) {
-                                    onClose();
-                                }
-                            }}
+                            onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
                         >
                             <AnimatePresence mode="wait">
                                 <motion.div
@@ -191,12 +167,15 @@ export function DetailModal({
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0, scale: 0.95 }}
                                     transition={{ duration: 0.2 }}
-                                    className="w-full h-full"
+                                    className="w-full h-full relative"
                                 >
                                     {item.type === 'image' ? (
                                         <ImageViewer
                                             src={getMediaSrc(item)}
                                             alt={item.fileName}
+                                            scale={zoomScale}
+                                            onZoomChange={setZoomScale}
+                                            onResetZoom={handleResetZoom}
                                         />
                                     ) : (
                                         <VideoPlayer
@@ -204,51 +183,72 @@ export function DetailModal({
                                             poster={item.thumbnailPath || undefined}
                                         />
                                     )}
+
+                                    {/* EXIF Info Overlay */}
+                                    {item.type === 'image' && item.exifData && (
+                                        <div className="absolute bottom-6 left-0 right-0 z-30 flex justify-center pointer-events-none">
+                                            <PhotoInfoOverlay
+                                                exif={item.exifData}
+                                                className="pointer-events-auto hover:bg-black/60 transition-colors duration-300"
+                                            />
+                                        </div>
+                                    )}
                                 </motion.div>
                             </AnimatePresence>
                         </div>
 
-                        {/* 底部工具栏 - 删除、收藏、关闭 */}
-                        <div className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-center gap-6 p-4 bg-gradient-to-t from-black/60 to-transparent">
-                            {/* 删除按钮 */}
-                            {onDeleteItem && (
+                        {/* Bottom Toolbar - Merged Controls */}
+                        <div className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-center gap-4 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent pt-24 pointer-events-none">
+                            <div className="flex items-center gap-2 p-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10 pointer-events-auto">
+
+                                {/* Zoom Controls */}
+                                {item.type === 'image' && (
+                                    <>
+                                        <button onClick={handleZoomOut} className="p-2 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition-colors" title="缩小">
+                                            <ZoomOut className="w-5 h-5" />
+                                        </button>
+                                        <span className="text-white/80 text-xs font-mono w-10 text-center">
+                                            {Math.round(zoomScale * 100)}%
+                                        </span>
+                                        <button onClick={handleZoomIn} className="p-2 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition-colors" title="放大">
+                                            <ZoomIn className="w-5 h-5" />
+                                        </button>
+                                        <button onClick={handleResetZoom} className="p-2 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition-colors" title="重置视图">
+                                            <RotateCcw className="w-4 h-4" />
+                                        </button>
+                                        <div className="w-px h-5 bg-white/20 mx-1" />
+                                    </>
+                                )}
+
+                                {/* Standard Controls */}
                                 <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDelete();
-                                    }}
-                                    className="p-3 rounded-full bg-white/10 hover:bg-red-500/30 transition-colors group"
-                                    title="从图库中删除"
+                                    onClick={() => onFavoriteToggle(item.id)}
+                                    className={`p-2 rounded-full transition-colors ${item.isFavorite ? 'bg-neon-pink/20 text-neon-pink' : 'hover:bg-white/10 text-white/80 hover:text-white'}`}
+                                    title={item.isFavorite ? '取消收藏' : '添加收藏'}
                                 >
-                                    <Trash2 className="w-6 h-6 text-white group-hover:text-red-400" />
+                                    <Heart className={`w-5 h-5 ${item.isFavorite ? 'fill-neon-pink' : ''}`} />
                                 </button>
-                            )}
 
-                            {/* 收藏按钮 */}
-                            <button
-                                onClick={() => onFavoriteToggle(item.id)}
-                                className={`p-3 rounded-full transition-colors ${item.isFavorite
-                                    ? 'bg-neon-pink/30 hover:bg-neon-pink/40'
-                                    : 'bg-white/10 hover:bg-white/20'
-                                    }`}
-                                title={item.isFavorite ? '取消收藏' : '添加收藏'}
-                            >
-                                <Heart className={`w-6 h-6 ${item.isFavorite ? 'text-neon-pink fill-neon-pink' : 'text-white'
-                                    }`} />
-                            </button>
+                                {onDeleteItem && (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+                                        className="p-2 rounded-full hover:bg-red-500/20 text-white/80 hover:text-red-400 transition-colors"
+                                        title="删除"
+                                    >
+                                        <Trash2 className="w-5 h-5" />
+                                    </button>
+                                )}
 
-                            {/* 关闭按钮 */}
-                            <button
-                                onClick={onClose}
-                                className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                                title="关闭 (ESC)"
-                            >
-                                <X className="w-6 h-6 text-white" />
-                            </button>
+                                <div className="w-px h-5 bg-white/20 mx-1" />
+
+                                <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition-colors" title="关闭">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
                         </div>
                     </div>
 
-                    {/* 元数据侧边栏 */}
+                    {/* Metadata Sidebar */}
                     <MetadataSidebar
                         item={item}
                         allTags={allTags}
@@ -262,3 +262,4 @@ export function DetailModal({
         </AnimatePresence>
     )
 }
+

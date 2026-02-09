@@ -74,16 +74,30 @@ app.whenReady().then(() => {
 
     protocol.handle('nexus-media', (request) => {
         try {
-            const url = request.url.replace('nexus-media://local/', '')
-            const decodedPath = decodeURIComponent(url)
+            // Log for debugging
+            // console.log('[Protocol] Request:', request.url)
 
-            // 确保 Windows 路径的正确性
-            // net.fetch 需要标准的 file:/// URL
+            // Remove protocol prefix
+            let urlPath = request.url.replace(/^nexus-media:\/\/local\/?/, '')
+
+            // Decode URI components (browser encodes spaces as %20, etc.)
+            let decodedPath = decodeURIComponent(urlPath)
+
+            // Normalize path separators for Windows
+            // pathToFileURL handles both / and \, so we prioritize decoding correctly
+
+            // Fix for query parameters if present
+            const queryIndex = decodedPath.indexOf('?')
+            if (queryIndex !== -1) {
+                decodedPath = decodedPath.slice(0, queryIndex)
+            }
+
+            // pathToFileURL creates a proper file:// URL
             const fileUrl = pathToFileURL(decodedPath).toString()
 
             return net.fetch(fileUrl)
         } catch (error) {
-            console.error('Protocol error:', error)
+            console.error('[Protocol] Error handling URL:', request.url, error)
             return new Response('Not Found', { status: 404 })
         }
     })
