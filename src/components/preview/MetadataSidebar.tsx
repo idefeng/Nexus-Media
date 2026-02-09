@@ -235,7 +235,7 @@ export function MetadataSidebar({ item, allTags, onTagsChange, onNotesChange, on
 
                         <div className="space-y-3">
                             {/* 相机设备 */}
-                            {(exif.make || exif.model) && (
+                            {(exif.make || exif.model || exif.lensModel || exif.serialNumber) && (
                                 <div className="flex items-start gap-3">
                                     <Camera className="w-4 h-4 text-nexus-text-muted mt-0.5" />
                                     <div>
@@ -243,12 +243,22 @@ export function MetadataSidebar({ item, allTags, onTagsChange, onNotesChange, on
                                         <p className="text-nexus-text-primary text-sm">
                                             {[exif.make, exif.model].filter(Boolean).join(' ')}
                                         </p>
+                                        {exif.lensModel && (
+                                            <p className="text-nexus-text-secondary text-xs mt-0.5" title="镜头">
+                                                📷 {exif.lensModel}
+                                            </p>
+                                        )}
+                                        {exif.serialNumber && (
+                                            <p className="text-nexus-text-muted text-[10px] mt-0.5 font-mono">
+                                                SN: {exif.serialNumber}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                             )}
 
                             {/* 拍摄参数 */}
-                            {(exif.focalLength || exif.aperture || exif.exposureTime || exif.iso) && (
+                            {(exif.focalLength || exif.aperture || exif.exposureTime || exif.iso || exif.exposureBias) && (
                                 <div className="flex items-start gap-3">
                                     <Aperture className="w-4 h-4 text-nexus-text-muted mt-0.5" />
                                     <div>
@@ -266,7 +276,7 @@ export function MetadataSidebar({ item, allTags, onTagsChange, onNotesChange, on
                                             )}
                                             {exif.exposureTime && (
                                                 <span className="px-2 py-0.5 text-xs bg-nexus-bg-tertiary rounded text-nexus-text-secondary">
-                                                    {exif.exposureTime}
+                                                    {exif.exposureTime}s
                                                 </span>
                                             )}
                                             {exif.iso && (
@@ -274,7 +284,21 @@ export function MetadataSidebar({ item, allTags, onTagsChange, onNotesChange, on
                                                     ISO {exif.iso}
                                                 </span>
                                             )}
+                                            {exif.exposureBias && exif.exposureBias !== 0 && (
+                                                <span className="px-2 py-0.5 text-xs bg-nexus-bg-tertiary rounded text-nexus-text-secondary">
+                                                    {exif.exposureBias > 0 ? '+' : ''}{exif.exposureBias} EV
+                                                </span>
+                                            )}
                                         </div>
+
+                                        {/* 进阶参数 */}
+                                        {(exif.meteringMode || exif.exposureProgram || exif.whiteBalance) && (
+                                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-[10px] text-nexus-text-muted">
+                                                {exif.exposureProgram && <span>{exif.exposureProgram}</span>}
+                                                {exif.meteringMode && <span>{exif.meteringMode}</span>}
+                                                {exif.whiteBalance && <span>{exif.whiteBalance}</span>}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}

@@ -1,26 +1,14 @@
 /**
- * EXIF 元数据提取模块
- * 使用 exiftool-vendored 提供强大的元数据解析能力（支持图片和视频）
+ * EXIF metadata extraction module
+ * Migrated to Python Backend (ai_engine)
  */
-import { ExifTool } from 'exiftool-vendored'
 import { updateExifData, getPendingExifItems, getExifStats } from './database'
 
-// 全局 ExifTool 实例
-let exiftool: ExifTool | null = null
+// No local exiftool instance anymore
 let isProcessing = false
 
-function getExifTool() {
-    if (!exiftool) {
-        exiftool = new ExifTool({
-            taskTimeoutMillis: 20000, // 20秒超时 (在系统繁忙时提供更多余地)
-            maxProcs: 4               // 允许4个并发进程
-        })
-    }
-    return exiftool
-}
-
 /**
- * EXIF 数据结构
+ * EXIF Data Structure
  */
 export interface ExifData {
     // 相机信息
@@ -70,88 +58,43 @@ export interface ExifData {
 /**
  * 从媒体文件提取元数据
  */
+/**
+ * Extract metadata from media file via Python AI Backend
+ */
 export async function extractExifData(filePath: string): Promise<ExifData | null> {
     try {
-        const tool = getExifTool()
+        // Call Python Backend
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s timeout
 
-        // 强制的外部超时控制 (22秒)
-        const exifPromise = tool.read(filePath)
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('HARD_TIMEOUT')), 22000))
-
-        const tags = await Promise.race([exifPromise, timeoutPromise]) as any
-
-        if (!tags) return null
-
-        // 提取尽可能全的信息
-        const result: ExifData = {
-            // 相机信息
-            make: tags.Make,
-            model: tags.Model,
-            software: tags.Software,
-            lensModel: tags.LensModel || tags.LensType || tags.LensInfo,
-            serialNumber: tags.SerialNumber || tags.InternalSerialNumber,
-
-            // 拍摄参数
-            focalLength: tags.FocalLength ? String(tags.FocalLength) : undefined,
-            focalLength35mm: tags.FocalLengthIn35mmFormat || tags.FocalLength35efl,
-            aperture: tags.FNumber || tags.ApertureValue,
-            exposureTime: tags.ExposureTime ? String(tags.ExposureTime) : undefined,
-            exposureBias: tags.ExposureCompensation,
-            iso: tags.ISO || tags.BaseISO,
-            flash: tags.Flash ? String(tags.Flash) : undefined,
-            meteringMode: tags.MeteringMode,
-            exposureProgram: tags.ExposureProgram,
-            whiteBalance: tags.WhiteBalance,
-            colorSpace: tags.ColorSpace,
-
-            // 时间 (多字段备选)
-            dateTimeOriginal: (tags.DateTimeOriginal || tags.CreateDate || (tags as any).ContentCreateDate)?.toString(),
-            modifyDate: tags.ModifyDate?.toString(),
-            createDate: tags.CreateDate?.toString(),
-
-            // GPS
-            latitude: typeof tags.GPSLatitude === 'number' ? tags.GPSLatitude : undefined,
-            longitude: typeof tags.GPSLongitude === 'number' ? tags.GPSLongitude : undefined,
-            altitude: tags.GPSAltitude,
-            gpsDateStamp: tags.GPSDateStamp,
-
-            // 尺寸与时长
-            width: tags.ImageWidth || tags.ExifImageWidth || tags.SourceImageWidth,
-            height: tags.ImageHeight || tags.ExifImageHeight || tags.SourceImageHeight,
-            orientation: tags.Orientation as number,
-            duration: tags.Duration ? parseFloat(String(tags.Duration)) : undefined,
-            bitDepth: tags.BitDepth || tags.BitsPerSample,
-            fileSize: tags.FileSize,
-            mimeType: tags.MIMEType,
-
-            // 为了极致最大化，保存一些未被定义的 Tags 到 raw 中 (可选，如果数据库空间允许)
-            // 这里我们只保存一些有意义但没放在顶层的字段
-            raw: {
-                sceneCaptureType: tags.SceneCaptureType,
-                contrast: tags.Contrast,
-                saturation: tags.Saturation,
-                sharpness: tags.Sharpness,
-                digitalZoomRatio: tags.DigitalZoomRatio,
-                imageUniqueID: tags.ImageUniqueID
-            }
-        }
-
-        // 清理 undefined 值
-        Object.keys(result).forEach(key => {
-            if ((result as any)[key] === undefined) {
-                delete (result as any)[key]
-            }
+        const response = await fetch('http://127.0.0.1:8765/metadata/extract', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: filePath }),
+            signal: controller.signal
         })
+        clearTimeout(timeoutId)
 
-        return Object.keys(result).length > 0 ? result : null
-    } catch (error) {
-        console.error(`元数据提取失败: ${filePath}`, error)
-
-        // 仅在关键错误时重启
-        if (String(error).includes('HARD_TIMEOUT')) {
-            console.warn(`[EXIF] 检测到硬超时(22s): ${filePath}`)
-            // 不再因为单个超时就重启实例
+        if (!response.ok) {
+            throw new Error(`AI Server Error: ${response.statusText}`)
         }
+
+        const json = await response.json() as any
+
+        if (!json.success || !json.data) {
+            return null
+        }
+
+        const data = json.data
+        return data as ExifData
+
+    } catch (error) {
+        console.error(`Metadata extraction failed: ${filePath}`, error)
+
+        if (String(error).includes('AbortError') || String(error).includes('timeout')) {
+            console.warn(`[EXIF] Timeout calling AI Server: ${filePath}`)
+        }
+
         return null
     }
 }
@@ -189,7 +132,8 @@ export async function processExifBatch(): Promise<number> {
                     updateExifData(item.id, exifData)
                 } else {
                     // 标记为失败，避免无限重试
-                    updateExifData(item.id, { _error: 'processing_failed' })
+                    console.warn(`[EXIF] 标记为处理失败: ${item.path}`)
+                    updateExifData(item.id, { _error: 'processing_failed', _failed_at: new Date().toISOString() })
                 }
 
                 processed++
@@ -209,11 +153,8 @@ export async function processExifBatch(): Promise<number> {
 }
 
 /**
- * 应用关闭时释放 exiftool 资源
+ * Stop resources (Empty now as we use stateless HTTP)
  */
 export function stopExifTool() {
-    if (exiftool) {
-        exiftool.end()
-        exiftool = null
-    }
+    // Nothing to stop
 }

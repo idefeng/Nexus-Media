@@ -10,6 +10,11 @@ import uvicorn
 from clip_model import get_model
 
 
+import warnings
+# Suppress FutureWarning from scikit-image via insightface
+warnings.filterwarnings("ignore", category=FutureWarning, module="insightface")
+warnings.filterwarnings("ignore", category=FutureWarning, message="`estimate` is deprecated")
+
 app = FastAPI(
     title="Nexus Media AI Engine",
     description="Local AI backend for image tagging and semantic search",
@@ -175,6 +180,14 @@ class CompareResultItem(BaseModel):
 class CompareBatchResponse(BaseModel):
     success: bool
     results: list[CompareResultItem]
+    error: Optional[str] = None
+
+class ExtractMetadataRequest(BaseModel):
+    path: str
+
+class ExtractMetadataResponse(BaseModel):
+    success: bool
+    data: Optional[dict] = None
     error: Optional[str] = None
 
 
@@ -400,10 +413,11 @@ async def batch_focus_score(request: BatchFocusRequest):
 
 # Global engines
 migration_engine = None
+metadata_engine = None
 
 @app.on_event("startup")
 async def startup_event():
-    global migration_engine
+    global migration_engine, metadata_engine
     print("Preloading Migration Engine (Face Models)...")
     try:
         from migration_engine import MigrationEngine
@@ -411,6 +425,14 @@ async def startup_event():
         print("Migration Engine loaded successfully.")
     except Exception as e:
         print(f"Failed to load Migration Engine: {e}")
+
+    print("Preloading Metadata Engine...")
+    try:
+        from metadata_engine import MetadataEngine
+        metadata_engine = MetadataEngine()
+        print("Metadata Engine loaded successfully.")
+    except Exception as e:
+        print(f"Failed to load Metadata Engine: {e}")
 
 # ==================== Migration Endpoints ====================
 
@@ -467,6 +489,20 @@ async def compare_batch(request: CompareBatchRequest):
         raise he
     except Exception as e:
         return CompareBatchResponse(success=False, results=[], error=str(e))
+
+
+@app.post("/metadata/extract", response_model=ExtractMetadataResponse)
+async def extract_metadata(request: ExtractMetadataRequest):
+    """Extract EXIF/Metadata from file via Python"""
+    global metadata_engine
+    try:
+        if not metadata_engine:
+             raise HTTPException(status_code=503, detail="Metadata engine not initialized")
+        
+        data = metadata_engine.extract_metadata(request.path)
+        return ExtractMetadataResponse(success=True, data=data)
+    except Exception as e:
+        return ExtractMetadataResponse(success=False, error=str(e))
 
 
 # ==================== 启动入口 ====================

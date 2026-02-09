@@ -6,16 +6,24 @@ export interface ExifData {
     make?: string           // 相机品牌
     model?: string          // 相机型号
     software?: string       // 处理软件
+    lensModel?: string      // 镜头型号
+    serialNumber?: string   // 机身序列号
 
     // 拍摄参数
-    focalLength?: number    // 焦距 (mm)
+    focalLength?: number | string // 焦距 (mm) - Python returns string for some tags
     aperture?: number       // 光圈 (f/)
     exposureTime?: string   // 快门速度
+    exposureBias?: number   // 曝光补偿
     iso?: number            // ISO 感光度
     flash?: string          // 闪光灯状态
+    meteringMode?: string   // 测光模式
+    exposureProgram?: string // 曝光程序
+    whiteBalance?: string   // 白平衡
 
     // 时间
     dateTimeOriginal?: string   // 原始拍摄时间
+    createDate?: string
+    modifyDate?: string
 
     // GPS 信息
     latitude?: number       // 纬度
@@ -27,6 +35,10 @@ export interface ExifData {
     height?: number         // 原始高度
     orientation?: number    // 方向
     colorSpace?: string     // 色彩空间
+    duration?: number       // 时长
+    fileSize?: number
+    mimeType?: string
+    bitDepth?: number
 }
 
 /**
