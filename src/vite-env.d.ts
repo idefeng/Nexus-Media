@@ -145,5 +145,16 @@ interface Window {
             getMedia: () => Promise<{ success: boolean; items: MediaItemRecord[] }>
             searchByBounds: (bounds: { north: number; south: number; east: number; west: number }) => Promise<{ success: boolean; items: MediaItemRecord[] }>
         }
+        migration: {
+            scanDir: (folderPaths: string[]) => Promise<{ success: boolean; files: any[] }>
+            moveFile: (sourcePath: string, targetDir: string) => Promise<{ success: boolean; newPath?: string; error?: string }>
+            analyzeSeed: (imagePath: string) => Promise<{ success: boolean; info?: any; raw_data?: any; error?: string }>
+            compareBatch: (seedData: any, targetPaths: string[], criteria: any) => Promise<{ success: boolean; results?: any[]; error?: string }>
+            onProgress: (callback: (progress: any) => void) => () => void
+        }
+        exif: {
+            toggleAuto: (enabled: boolean) => Promise<any>
+            start: () => Promise<{ success: boolean }>
+        }
     }
 }

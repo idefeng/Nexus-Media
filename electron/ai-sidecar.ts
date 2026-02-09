@@ -466,8 +466,71 @@ async function processFacesAndClustering() {
 }
 
 /**
- * 获取 AI 服务状态
+ * 迁移助手：分析种子图片
  */
+export async function analyzeSeed(imagePath: string): Promise<{
+    success: boolean
+    info?: any
+    raw_data?: any
+    error?: string
+}> {
+    if (!isServerReady) return { success: false, error: 'AI 服务未就绪' }
+
+    try {
+        console.log(`[AI Sidecar] Analyzing seed: ${imagePath}`)
+        const response = await fetch(`${AI_SERVER_URL}/migration/analyze-seed`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image_path: imagePath }),
+            signal: AbortSignal.timeout(30000)
+        })
+
+        if (!response.ok) {
+            const errText = await response.text()
+            console.error(`[AI Sidecar] Analyze failed: ${response.status} ${errText}`)
+            return { success: false, error: errText }
+        }
+
+        const text = await response.text()
+        console.log(`[AI Sidecar] Analyze response: ${text}`)
+        try {
+            const data = JSON.parse(text)
+            return data
+        } catch (parseErr) {
+            console.error('[AI Sidecar] JSON Parse error:', parseErr)
+            return { success: false, error: 'Invalid JSON response' }
+        }
+    } catch (err) {
+        console.error('[AI Sidecar] Analyze exception:', err)
+        return { success: false, error: String(err) }
+    }
+}
+
+/**
+ * 迁移助手：批量比对
+ */
+export async function compareBatch(seedData: any, targetPaths: string[], criteria: any): Promise<{
+    success: boolean
+    results?: any[]
+    error?: string
+}> {
+    if (!isServerReady) return { success: false, error: 'AI 服务未就绪' }
+
+    try {
+        const response = await fetch(`${AI_SERVER_URL}/migration/compare-batch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ seed_data: seedData, target_paths: targetPaths, criteria }),
+            signal: AbortSignal.timeout(300000) // 5 minutes timeout for batch
+        })
+
+        if (!response.ok) return { success: false, error: await response.text() }
+        return await response.json()
+    } catch (err) {
+        return { success: false, error: String(err) }
+    }
+}
+
 export function getAiStatus(): { running: boolean; ready: boolean; pendingCount: number } {
     return {
         running: pythonProcess !== null,

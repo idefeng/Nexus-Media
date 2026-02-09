@@ -15,7 +15,7 @@ import {
 } from './database'
 import { scanFolders, type ScannedFile, type ScanProgress } from './scanner'
 import { initThumbnailsDir, startThumbnailBatch } from './thumbnails'
-import { startAiServer, stopAiServer, checkHealth, analyzeImage, semanticSearch, processBackgroundAnalysis, getAiStatus } from './ai-sidecar'
+import { startAiServer, stopAiServer, checkHealth, analyzeImage, semanticSearch, processBackgroundAnalysis, getAiStatus, analyzeSeed, compareBatch } from './ai-sidecar'
 import { generateCollage } from './studio'
 import { processMd5Batch, analyzeCleanup, detectSimilarInChunk, trashItems as trashMediaItems, detectBlurryImages } from './cleanup'
 import { getItemsWithEmbedding } from './database'
@@ -524,6 +524,50 @@ ipcMain.handle('people:getGraph', async () => {
 
 ipcMain.handle('people:getSharedMedia', async (_event, id1, id2) => {
     return getSharedMedia(id1, id2)
+})
+
+// ==================== Migration Assistant ====================
+ipcMain.handle('migration:analyzeSeed', async (_event, imagePath) => {
+    console.log('[Main] Received migration:analyzeSeed', imagePath)
+    const result = await analyzeSeed(imagePath)
+    console.log('[Main] Returning migration:analyzeSeed', result.success)
+    return result
+})
+
+ipcMain.handle('migration:scanDir', async (_event, folderPaths: string[]) => {
+    try {
+        // Use existing scanner but just return the list without inserting into DB
+        const results = await scanFolders(folderPaths, (progress) => {
+            // Optional: send progress if needed
+        })
+        return { success: true, files: results }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
+})
+
+ipcMain.handle('migration:compareBatch', async (_event, seedData, targetPaths, criteria) => {
+    return await compareBatch(seedData, targetPaths, criteria)
+})
+
+ipcMain.handle('file:move', async (_event, sourcePath: string, targetDir: string) => {
+    try {
+        const fileName = path.basename(sourcePath)
+        let targetPath = path.join(targetDir, fileName)
+
+        // Auto-rename if exists
+        if (await fs.pathExists(targetPath)) {
+            const ext = path.extname(fileName)
+            const name = path.basename(fileName, ext)
+            const timestamp = new Date().getTime()
+            targetPath = path.join(targetDir, `${name}_${timestamp}${ext}`)
+        }
+
+        await fs.move(sourcePath, targetPath)
+        return { success: true, newPath: targetPath }
+    } catch (error: any) {
+        return { success: false, error: error.message }
+    }
 })
 
 // ==================== Configuration Management ====================

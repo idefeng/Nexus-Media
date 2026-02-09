@@ -4,7 +4,7 @@ AI Engine FastAPI 服务
 """
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Tuple
 import uvicorn
 
 from clip_model import get_model
@@ -140,7 +140,42 @@ class HealthResponse(BaseModel):
     device: str
     gpu_name: Optional[str] = None
     gpu_memory: Optional[str] = None
+    gpu_memory: Optional[str] = None
     face_engine_ready: bool = False
+
+
+# ==================== Migration API Models ====================
+
+class AnalyzeSeedRequest(BaseModel):
+    image_path: str
+
+class MigrationSeedInfo(BaseModel):
+    path: str
+    datetime: Optional[str] = None
+    gps: Optional[Tuple[float, float]] = None
+    face_count: int
+
+class AnalyzeSeedResponse(BaseModel):
+    success: bool
+    info: Optional[MigrationSeedInfo] = None
+    error: Optional[str] = None
+    raw_data: Optional[dict] = None  # To pass back to compare_batch
+
+class CompareBatchRequest(BaseModel):
+    seed_data: dict
+    target_paths: list[str]
+    criteria: dict  # { "time": bool, "location": bool, "face": bool }
+
+class CompareResultItem(BaseModel):
+    path: str
+    confidence_level: str
+    reasons: list[str]
+    score: int
+
+class CompareBatchResponse(BaseModel):
+    success: bool
+    results: list[CompareResultItem]
+    error: Optional[str] = None
 
 
 # ==================== API 端点 ====================
@@ -361,6 +396,77 @@ async def batch_focus_score(request: BatchFocusRequest):
             ))
     
     return BatchFocusResponse(results=results)
+
+
+# Global engines
+migration_engine = None
+
+@app.on_event("startup")
+async def startup_event():
+    global migration_engine
+    print("Preloading Migration Engine (Face Models)...")
+    try:
+        from migration_engine import MigrationEngine
+        migration_engine = MigrationEngine()
+        print("Migration Engine loaded successfully.")
+    except Exception as e:
+        print(f"Failed to load Migration Engine: {e}")
+
+# ==================== Migration Endpoints ====================
+
+@app.post("/migration/analyze-seed", response_model=AnalyzeSeedResponse)
+async def analyze_seed(request: AnalyzeSeedRequest):
+    """Analyze seed image for migration"""
+    global migration_engine
+    try:
+        if not migration_engine:
+            raise HTTPException(status_code=503, detail="Migration engine not initialized")
+            
+        data = migration_engine.analyze_seed(request.image_path)
+        
+        # Serializable info
+        info = MigrationSeedInfo(
+            path=data["path"],
+            datetime=data["datetime"].isoformat() if data["datetime"] else None,
+            gps=data["gps"],
+            face_count=data["face_count"]
+        )
+        
+        # Convert datetime to str for JSON serialization in raw_data
+        if data.get("datetime"):
+            data["datetime"] = data["datetime"].isoformat()
+            
+        return AnalyzeSeedResponse(success=True, info=info, raw_data=data)
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        return AnalyzeSeedResponse(success=False, error=str(e))
+
+@app.post("/migration/compare-batch", response_model=CompareBatchResponse)
+async def compare_batch(request: CompareBatchRequest):
+    """Compare batch of images against seed"""
+    global migration_engine
+    try:
+        from datetime import datetime
+        
+        if not migration_engine:
+             raise HTTPException(status_code=503, detail="Migration engine not initialized")
+        
+        # Deserialize request data
+        seed_data = request.seed_data.copy()
+        if seed_data.get("datetime") and isinstance(seed_data["datetime"], str):
+             seed_data["datetime"] = datetime.fromisoformat(seed_data["datetime"])
+             
+        results = migration_engine.compare_batch(seed_data, request.target_paths, request.criteria)
+        
+        return CompareBatchResponse(
+            success=True, 
+            results=[CompareResultItem(**r) for r in results]
+        )
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        return CompareBatchResponse(success=False, results=[], error=str(e))
 
 
 # ==================== 启动入口 ====================

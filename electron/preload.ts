@@ -173,6 +173,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
         getMedia: () => ipcRenderer.invoke('map:getMedia') as Promise<{ success: boolean; items: MediaItemRecord[] }>,
         searchByBounds: (bounds: { north: number; south: number; east: number; west: number }) =>
             ipcRenderer.invoke('map:searchByBounds', bounds) as Promise<{ success: boolean; items: MediaItemRecord[] }>
+    },
+
+    // 迁移助手
+    migration: {
+        scanDir: (folderPaths: string[]) => ipcRenderer.invoke('migration:scanDir', folderPaths),
+        moveFile: (sourcePath: string, targetDir: string) => ipcRenderer.invoke('file:move', sourcePath, targetDir),
+        analyzeSeed: (imagePath: string) => ipcRenderer.invoke('migration:analyzeSeed', imagePath),
+        compareBatch: (seedData: any, targetPaths: string[], criteria: any) => ipcRenderer.invoke('migration:compareBatch', seedData, targetPaths, criteria),
+        onProgress: (callback: (progress: any) => void) => {
+            const subscription = (_: any, progress: any) => callback(progress)
+            ipcRenderer.on('migration:scan-progress', subscription)
+            return () => ipcRenderer.removeListener('migration:scan-progress', subscription)
+        }
     }
 })
 
@@ -253,6 +266,12 @@ declare global {
                 updateName: (id: number, name: string) => Promise<{ success: boolean }>
                 getGraph: () => Promise<{ nodes: any[]; links: any[] }>
                 getSharedMedia: (id1: number, id2: number) => Promise<any[]>
+            }
+            migration: {
+                scanDir: (folderPaths: string[]) => Promise<{ success: boolean, files: any[] }>
+                moveFile: (sourcePath: string, targetDir: string) => Promise<{ success: boolean, newPath?: string, error?: string }>
+                analyzeSeed: (imagePath: string) => Promise<{ success: boolean, info?: any, raw_data?: any, error?: string }>
+                compareBatch: (seedData: any, targetPaths: string[], criteria: any) => Promise<{ success: boolean, results?: any[], error?: string }>
             }
         }
     }

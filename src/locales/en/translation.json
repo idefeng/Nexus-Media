@@ -119,12 +119,6 @@
         "speed": "Speed",
         "seconds": "{{count}}s"
     },
-    "common": {
-        "cancel": "Cancel",
-        "app_name": "Nexus Media",
-        "app_subtitle": "Next-Gen Intelligent Media Asset Management",
-        "slideshow": "Play Slideshow"
-    },
     "studio": {
         "title": "AI Creative Studio",
         "subtitle": "Nexus Creative Studio",
@@ -132,5 +126,23 @@
         "mode_image": "Image-to-Image",
         "generating": "AI is creating...",
         "success": "Artwork saved"
+    },
+    "migration": {
+        "title": "Migration Assistant",
+        "analyzing": "Analyzing Seed Photo...",
+        "faces_count": "{{count}} Faces Detected",
+        "drop_hint": "Drag & Drop Seed Photo Here",
+        "click_hint": "or click to browse",
+        "scanning": "Scanning...",
+        "comparing": "Comparing files against seed photo...",
+        "files_found": "Found {{count}} files..."
+    },
+    "common": {
+        "cancel": "Cancel",
+        "app_name": "Nexus Media",
+        "app_subtitle": "Next-Gen Intelligent Media Asset Management",
+        "slideshow": "Play Slideshow",
+        "migration_assistant": "Migration Assistant",
+        "continue": "Continue"
     }
 }

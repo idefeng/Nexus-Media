@@ -13,6 +13,7 @@ import { PeoplePage } from './components/people/PeoplePage'
 import { MapDashboard } from './components/map/MapDashboard'
 import { DetailModal } from './components/preview'
 import { SlideshowPlayer } from './components/media/SlideshowPlayer'
+import { MigrationAssistantModal } from './components/migration/MigrationAssistantModal'
 import { type FilterState, defaultFilterState } from './components/layout/FilterPanel'
 import { recordToMediaItem, type ViewType, MediaItem, ScanProgress, TagStat, MediaItemRecord } from './types'
 import { PreferencesProvider } from './contexts/PreferencesContext'
@@ -41,6 +42,9 @@ function App() {
 
     // 幻灯片状态
     const [isSlideshowActive, setIsSlideshowActive] = useState(false)
+
+    // 迁移助手状态
+    const [isMigrationOpen, setIsMigrationOpen] = useState(false)
 
     // 从数据库加载媒体项
     const loadMediaFromDB = useCallback(async () => {
@@ -536,6 +540,7 @@ function App() {
                     isScanning={isScanning}
                     scanStatus={scanStatus}
                     onPlaySlideshow={handlePlaySlideshow}
+                    onOpenMigration={() => setIsMigrationOpen(true)}
                 />
 
                 {/* 主体区域 */}
@@ -631,6 +636,12 @@ function App() {
                         onClose={handleCloseSlideshow}
                     />
                 )}
+
+                {/* 迁移助手 */}
+                <MigrationAssistantModal
+                    isOpen={isMigrationOpen}
+                    onClose={() => setIsMigrationOpen(false)}
+                />
 
                 {/* 底部装饰 - 极简风格不需要强光晕，可以使用极淡的渐变背景或留白 */}
                 <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10 bg-nexus-bg">

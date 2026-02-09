@@ -32,7 +32,13 @@ class FaceEngine:
         """
         检测图片中的人脸并提取特征
         """
-        img = cv2.imread(image_path)
+        # Fix for Chinese paths on Windows
+        import numpy as np
+        try:
+            img = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_COLOR)
+        except Exception as e:
+            img = None
+            
         if img is None:
             raise ValueError(f"Could not read image: {image_path}")
         

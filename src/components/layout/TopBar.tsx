@@ -16,7 +16,8 @@ import {
     Loader2,
     RefreshCw,
     Brain,
-    Zap
+    Zap,
+    Wand2
 } from 'lucide-react'
 import logo from '../../assets/logo.png'
 
@@ -38,6 +39,7 @@ interface TopBarProps {
     onSemanticResults?: (results: SemanticSearchResult[] | null) => void
     isSemanticSearchEnabled?: boolean
     onPlaySlideshow?: () => void
+    onOpenMigration?: () => void
 }
 
 export function TopBar({
@@ -50,7 +52,8 @@ export function TopBar({
     onSemanticSearch,
     onSemanticResults,
     isSemanticSearchEnabled = true,
-    onPlaySlideshow
+    onPlaySlideshow,
+    onOpenMigration
 }: TopBarProps) {
     const { t } = useTranslation()
     const [isRefreshing, setIsRefreshing] = useState(false)
@@ -285,6 +288,17 @@ export function TopBar({
                     <span className="hidden sm:inline">
                         {isScanning ? t('topbar.scanning') : t('topbar.add_folder')}
                     </span>
+                </motion.button>
+
+                {/* 迁移助手按钮 */}
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={onOpenMigration}
+                    className="p-2.5 rounded-xl bg-white border border-gray-200 text-nexus-text-secondary hover:text-neon-blue hover:border-neon-blue/30 hover:shadow-clean transition-all flex items-center gap-2"
+                    title={t('common.migration_assistant') || 'Migration Assistant'}
+                >
+                    <Wand2 className="w-4 h-4" />
                 </motion.button>
 
                 {/* 幻灯片播放按钮 */}

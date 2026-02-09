@@ -119,12 +119,6 @@
         "speed": "播放速度",
         "seconds": "{{count}}秒"
     },
-    "common": {
-        "cancel": "取消",
-        "app_name": "Nexus Media",
-        "app_subtitle": "下一代智能媒体资产管理系统",
-        "slideshow": "幻灯片播放"
-    },
     "studio": {
         "title": "AI 创意工作室",
         "subtitle": "Nexus Creative Studio",
@@ -132,5 +126,23 @@
         "mode_image": "以图生图",
         "generating": "AI 正在创作中",
         "success": "作品已保存"
+    },
+    "migration": {
+        "title": "迁移助手",
+        "analyzing": "正在分析种子照片...",
+        "faces_count": "检测到 {{count}} 张人脸",
+        "drop_hint": "拖放种子照片到这里",
+        "click_hint": "或点击浏览",
+        "scanning": "扫描中...",
+        "comparing": "正在与种子照片对比...",
+        "files_found": "已发现 {{count}} 个文件..."
+    },
+    "common": {
+        "cancel": "取消",
+        "app_name": "Nexus Media",
+        "app_subtitle": "下一代智能媒体资产管理系统",
+        "slideshow": "幻灯片播放",
+        "migration_assistant": "迁移助手",
+        "continue": "继续"
     }
 }
