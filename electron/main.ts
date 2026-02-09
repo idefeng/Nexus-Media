@@ -96,23 +96,65 @@ app.whenReady().then(() => {
         // 初始化缩略图目录
         initThumbnailsDir()
 
-        // 启动后台任务调度器 (每10秒检查一次)
+        // 改进的后台任务调度器：串行执行重型任务，避免资源竞争
+        let isTaskRunning = false
         setInterval(async () => {
-            const { configStore } = await import('./config-store')
-            const config = configStore.store
+            if (isTaskRunning) return
+            isTaskRunning = true
 
-            // 后台任务并行启动（各自内部有 isProcessing 锁）
-            startThumbnailBatch() // 缩略图始终需要生成
-            processMd5Batch()     // MD5 始终需要计算
+            try {
+                const { configStore } = await import('./config-store')
+                const {
+                    getThumbnailStats,
+                    getMd5Stats,
+                    getExifStats,
+                    getAiStats
+                } = await import('./database')
 
-            // EXIF 只有在启用且自动提取时才运行
-            if (config.exif?.enabled && config.exif?.autoExtract) {
-                processExifBatch()
-            }
+                const config = configStore.store
 
-            // AI 只有在启用且自动分析时才运行
-            if (config.ai?.enabled && config.ai?.autoAnalyze) {
-                processBackgroundAnalysis()
+                // ==================== 阶段性进度报告 ====================
+                const tStats = getThumbnailStats()
+                const mStats = getMd5Stats()
+                const eStats = getExifStats()
+                const aStats = getAiStats()
+
+                console.log('\n========= 后台任务进度概览 =========')
+                console.log(`[缩略图] 已处理: ${tStats.processed} / 总数: ${tStats.total} (剩余: ${tStats.pending})`)
+                console.log(`[MD5计算] 已处理: ${mStats.processed} / 总数: ${mStats.total} (剩余: ${mStats.pending})`)
+                console.log(`[EXIF提取] 已处理: ${eStats.processed} / 总数: ${eStats.total} (剩余: ${eStats.pending})`)
+                console.log(`[AI分析]  已处理: ${aStats.processed} / 总数: ${aStats.total} (剩余: ${aStats.pending})`)
+                console.log('===================================\n')
+                // =======================================================
+
+                console.log('[Scheduler] Heartbeat tick - Starting serialized sequence...')
+
+                // 1. 基础任务 (缩略图始终需要)
+                console.log('[Scheduler] Step 1: Thumbnails...')
+                await startThumbnailBatch()
+
+                // 2. MD5 计算
+                console.log('[Scheduler] Step 2: MD5...')
+                await processMd5Batch()
+
+                // 3. EXIF 提取 (优先级较高)
+                if (config.exif?.enabled && config.exif?.autoExtract) {
+                    console.log('[Scheduler] Step 3: EXIF...')
+                    await processExifBatch()
+                }
+
+                // 4. AI 分析 (最耗资源，最后执行)
+                if (config.ai?.enabled && config.ai?.autoAnalyze) {
+                    console.log('[Scheduler] Step 4: AI Analysis...')
+                    await processBackgroundAnalysis()
+                }
+
+                console.log('[Scheduler] Sequence complete. Sleeping...')
+
+            } catch (error) {
+                console.error('[Scheduler] 任务序列执行出错:', error)
+            } finally {
+                isTaskRunning = false
             }
         }, 10000)
 
